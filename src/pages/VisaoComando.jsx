@@ -80,7 +80,7 @@ export function VisaoComando({ fleet, abrir }) {
           </div>
           <div className="pc-modelos">
             {modelos.map((m) => {
-              const pct = m.c.total ? Math.round((m.c.disp / m.c.total) * 100) : 0;
+              const pct = m.c.total ? Math.round(((m.c.disp + m.c.restr) / m.c.total) * 100) : 0;
               const lvl = pct >= 80 ? "alto" : pct >= 50 ? "medio" : "baixo";
               return (
                 <div key={m.nome} className={"pc-modelo" + (m.c.total ? "" : " pc-vazio")}>
@@ -88,13 +88,20 @@ export function VisaoComando({ fleet, abrir }) {
                     <span className="pc-desig">{m.desig}</span>
                     <span className="pc-modelo-nome">{m.nome}</span>
                   </div>
-                  <div className="pc-barra">
-                    <div className="seg disp" style={{ flexGrow: m.c.disp }} />
-                    <div className="seg restr" style={{ flexGrow: m.c.restr }} />
-                    <div className="seg indisp" style={{ flexGrow: m.c.indisp }} />
+                  <div className="pc-barra-wrap">
+                    <div className="pc-barra-labels">
+                      {m.c.disp > 0 && <span className="pc-seg-lbl disp" style={{ flexGrow: m.c.disp }}>{m.c.disp}</span>}
+                      {m.c.restr > 0 && <span className="pc-seg-lbl restr" style={{ flexGrow: m.c.restr }}>{m.c.restr}</span>}
+                      {m.c.indisp > 0 && <span className="pc-seg-lbl indisp" style={{ flexGrow: m.c.indisp }}>{m.c.indisp}</span>}
+                    </div>
+                    <div className="pc-barra">
+                      <div className="seg disp" style={{ flexGrow: m.c.disp }} />
+                      <div className="seg restr" style={{ flexGrow: m.c.restr }} />
+                      <div className="seg indisp" style={{ flexGrow: m.c.indisp }} />
+                    </div>
                   </div>
                   <div className="pc-modelo-num">
-                    <span className="big">{m.c.disp}<span className="tot">/{m.c.total}</span></span>
+                    <span className="big">{m.c.disp + m.c.restr}<span className="tot">/{m.c.total}</span></span>
                     <span className={"pct " + lvl}>{m.c.total ? pct + "% pronto" : "sem aeronaves"}</span>
                   </div>
                 </div>

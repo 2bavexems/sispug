@@ -1,7 +1,7 @@
 // src/components/Gauge.jsx — medidor radial de prontidão (disponibilidade da frota)
 export function Gauge({ disp, restr, indisp }) {
   const total = disp + restr + indisp;
-  const pct = total ? Math.round((disp / total) * 100) : 0;
+  const pct = total ? Math.round(((disp + restr) / total) * 100) : 0;
   const cx = 100, cy = 100, r = 82, sw = 18;
   const C = 2 * Math.PI * r;
   const cores = [
@@ -48,7 +48,7 @@ export function Gauge({ disp, restr, indisp }) {
       {arcos}
       <text x={cx} y={cy - 6} textAnchor="middle" className={"pc-gauge-pct " + nivel}>{pct}%</text>
       <text x={cx} y={cy + 17} textAnchor="middle" className="pc-gauge-lab">DISPONIBILIDADE</text>
-      <text x={cx} y={cy + 36} textAnchor="middle" className="pc-gauge-frac">{disp} de {total} aeronaves</text>
+      <text x={cx} y={cy + 36} textAnchor="middle" className="pc-gauge-frac">{disp + restr} de {total} aeronaves</text>
     </svg>
   );
 }

@@ -490,6 +490,10 @@ select.cel option{background:#12294c}
 .pc-modelo-id{display:flex;flex-direction:column;align-items:flex-start;gap:3px}
 .pc-desig{align-self:flex-start;font-family:var(--num);font-size:10.5px;font-weight:800;letter-spacing:1px;color:#e1c987;background:rgba(201,173,107,0.1);border:1px solid var(--ouro-escuro);border-radius:6px;padding:2px 7px}
 .pc-modelo-nome{align-self:flex-start;text-align:left;font-style:normal;font-size:13.5px;font-weight:700;color:var(--texto)}
+.pc-barra-wrap{display:flex;flex-direction:column;gap:3px}
+.pc-barra-labels{display:flex;height:12px;overflow:hidden}
+.pc-seg-lbl{flex:0;min-width:0;text-align:center;font-size:9px;font-weight:800;line-height:12px;letter-spacing:.3px}
+.pc-seg-lbl.disp{color:#3fc984}.pc-seg-lbl.restr{color:#e7bd58}.pc-seg-lbl.indisp{color:#e06b65}
 .pc-barra{display:flex;height:15px;border-radius:8px;background:rgba(255,255,255,0.045);border:1px solid var(--borda);overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,0.35)}
 .pc-barra .seg{height:100%;min-width:0}
 .pc-barra .seg.disp{background:linear-gradient(90deg,#2b9d63,#3fc984)}
