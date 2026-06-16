@@ -408,6 +408,24 @@ select.cel option{background:#12294c}
 .modal-msg{margin:0 0 18px;font-size:13.5px;color:var(--texto2);line-height:1.55}
 .modal-acoes{display:flex;justify-content:flex-end;gap:10px;margin-top:22px}
 
+/* === Botão modo edição (header) === */
+.btn-modo-edicao{border:1px solid var(--borda-azul);background:transparent;color:var(--texto2);border-radius:8px;padding:5px 13px;font-size:12px;cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-modo-edicao:hover{background:rgba(255,255,255,.07)}
+.btn-modo-edicao.ativo{border-color:#4caf50;color:#4caf50}
+
+/* === Modo visualização — bloqueia edição via CSS === */
+[data-modo="visualizacao"] .grade-form input,
+[data-modo="visualizacao"] .grade-form select,
+[data-modo="visualizacao"] .grade-form textarea,
+[data-modo="visualizacao"] .tabela.edicao input.cel,
+[data-modo="visualizacao"] .tabela.edicao select.cel,
+[data-modo="visualizacao"] .tabela.edicao textarea.cel{pointer-events:none;cursor:default}
+[data-modo="visualizacao"] .cartao-cab .acoes,
+[data-modo="visualizacao"] .acoes-linha,
+[data-modo="visualizacao"] .btn-cadeado-secao,
+[data-modo="visualizacao"] .cartao-risco,
+[data-modo="visualizacao"] .painel-lembretes{display:none!important}
+
 @media (max-width:1100px){.comando-grade{grid-template-columns:1fr}}
 @media (max-width:760px){
   .conteudo{padding:16px 12px 40px}

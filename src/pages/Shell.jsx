@@ -12,9 +12,22 @@ import { Gestao } from "./Gestao";
 import { PainelAeronave } from "./PainelAeronave";
 
 export function Shell() {
-  const { fleet, salvoEm, exportar, importar, addAeronave, removeAeronave } = useFleet();
+  const { fleet, salvoEm, modoEdicao, desbloquear, bloquear, exportar, importar, addAeronave, removeAeronave } = useFleet();
   const [visao, setVisao] = useState("comando");
   const fileRef = useRef(null);
+
+  // ---- Estado do modal de PIN ----
+  const [modalPin, setModalPin] = useState({ aberto: false, pinDigitado: "" });
+
+  const tentarDesbloquear = () => {
+    if (desbloquear(modalPin.pinDigitado)) {
+      setModalPin({ aberto: false, pinDigitado: "" });
+      toast.success("Modo edição ativado");
+    } else {
+      toast.error("PIN incorreto");
+      setModalPin((m) => ({ ...m, pinDigitado: "" }));
+    }
+  };
 
   // ---- Estados dos modais (substituem prompt/confirm/alert) ----
   const [modalAdd, setModalAdd] = useState({ aberto: false, numeral: "", modelo: "Pantera K2" });
@@ -84,7 +97,7 @@ export function Shell() {
   const notif = notificacoes(fleet);
 
   return (
-    <div className="app">
+    <div className="app" data-modo={modoEdicao ? "edicao" : "visualizacao"}>
       <div className="faixa-ouro" />
 
       <header className="topo">
@@ -97,8 +110,15 @@ export function Shell() {
           <span className="chip-data">📅 {hoje().toLocaleDateString("pt-BR")}</span>
           <span className="chip-versao">V3</span>
           <button className="btn fantasma" onClick={exportar}>⬇ Backup</button>
-          <button className="btn fantasma" onClick={() => fileRef.current.click()}>⬆ Importar</button>
-          <input ref={fileRef} type="file" accept=".json" hidden onChange={onImportFile} />
+          {modoEdicao && <button className="btn fantasma" onClick={() => fileRef.current.click()}>⬆ Importar</button>}
+          {modoEdicao && <input ref={fileRef} type="file" accept=".json" hidden onChange={onImportFile} />}
+          <button
+            className={`btn-modo-edicao${modoEdicao ? " ativo" : ""}`}
+            onClick={() => modoEdicao ? bloquear() : setModalPin({ aberto: true, pinDigitado: "" })}
+            title={modoEdicao ? "Clique para voltar ao modo visualização" : "Clique para editar (requer PIN)"}
+          >
+            {modoEdicao ? "🔓 Editando" : "🔒 Visualização"}
+          </button>
         </div>
       </header>
 
@@ -131,6 +151,27 @@ export function Shell() {
       </footer>
 
       {/* ---- Modais ---- */}
+
+      {/* Modal: PIN de edição */}
+      <Modal
+        aberto={modalPin.aberto}
+        titulo="🔒 Modo Edição"
+        mensagem="Digite o PIN para desbloquear a edição:"
+        confirmLabel="Desbloquear"
+        onConfirmar={tentarDesbloquear}
+        onCancelar={() => setModalPin({ aberto: false, pinDigitado: "" })}
+      >
+        <input
+          autoFocus
+          type="password"
+          maxLength={4}
+          placeholder="● ● ● ●"
+          value={modalPin.pinDigitado}
+          onChange={(e) => setModalPin((m) => ({ ...m, pinDigitado: e.target.value }))}
+          onKeyDown={(e) => e.key === "Enter" && tentarDesbloquear()}
+          style={{ width: "100%", fontSize: "22px", textAlign: "center", letterSpacing: "10px", padding: "10px", marginBottom: "4px" }}
+        />
+      </Modal>
 
       {/* Modal: adicionar aeronave */}
       <Modal

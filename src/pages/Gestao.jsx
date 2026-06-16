@@ -1,12 +1,14 @@
 // src/pages/Gestao.jsx — Cadastro e Edição (lista de aeronaves)
 import { useState } from "react";
 import { tsnAtrasado, deveConfirmarMnt, notificacoes } from "../lib/domain";
+import { useFleet } from "../contexts/FleetContext";
 import { SeloSituacao } from "../components/SeloSituacao";
 import { PlnjMnt } from "./PlnjMnt";
 import { PesquisaMnt } from "./PesquisaMnt";
 
 export function Gestao({ fleet, abrir, adicionar }) {
   const [abaAtiva, setAbaAtiva] = useState("sisdelu");
+  const { modoEdicao } = useFleet();
   const notif = notificacoes(fleet);
 
   // Agrupa aeronaves por modelo
@@ -41,9 +43,11 @@ export function Gestao({ fleet, abrir, adicionar }) {
 
       {abaAtiva === "sisdelu" && (
         <>
-          <div style={{ marginBottom: "20px", textAlign: "right" }}>
-            <button className="btn primario" onClick={adicionar}>+ Adicionar aeronave</button>
-          </div>
+          {modoEdicao && (
+            <div style={{ marginBottom: "20px", textAlign: "right" }}>
+              <button className="btn primario" onClick={adicionar}>+ Adicionar aeronave</button>
+            </div>
+          )}
 
           {Object.entries(gruposPorModelo).map(([modelo, numerais], idx) =>
             numerais.length > 0 && (

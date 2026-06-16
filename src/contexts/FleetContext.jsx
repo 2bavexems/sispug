@@ -15,10 +15,14 @@ const FleetCtx = createContext(null);
 export const useFleet = () => useContext(FleetCtx);
 
 const uid = () => crypto.randomUUID();
+const PIN_EDICAO = "5215";
 
 export function FleetProvider({ children }) {
   const [fleet, setFleet] = useState(null);
   const [salvoEm, setSalvoEm] = useState(null);
+  const [modoEdicao, setModoEdicao] = useState(false);
+  const desbloquear = (pin) => { if (pin === PIN_EDICAO) { setModoEdicao(true); return true; } return false; };
+  const bloquear = () => setModoEdicao(false);
 
   const saveTimer = useRef(null);
   const carregado = useRef(false);
@@ -287,7 +291,7 @@ export function FleetProvider({ children }) {
 
   return (
     <FleetCtx.Provider value={{
-      fleet, salvoEm,
+      fleet, salvoEm, modoEdicao, desbloquear, bloquear,
       updateAeronave, updateInspecoes, toggleTravado, confirmarMnt,
       addManutencao, updateManutencao, duplicateManutencao, deleteManutencao,
       addAnotacao, updateAnotacao, deleteAnotacao,
