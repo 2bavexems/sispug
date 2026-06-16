@@ -20,9 +20,10 @@ body{margin:0;background:var(--fundo)}
 .topo-titulos{display:flex;flex-direction:column;gap:3px}
 .topo-nome{font-size:18px;font-weight:700;letter-spacing:.3px}
 .topo-sub{font-size:9px;color:#809dc2;letter-spacing:0.8px;text-transform:uppercase;font-style:italic;opacity:0.75;font-weight:500}
-.topo-dir{margin-left:auto;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.chip-data{font-size:13px;color:var(--texto2);border:1px solid var(--borda);border-radius:8px;padding:6px 12px;background:var(--carta)}
-.chip-versao{font-size:12px;font-weight:800;color:var(--ouro);border:1px solid var(--ouro-escuro);border-radius:8px;padding:6px 12px;letter-spacing:1px}
+.topo-dir{margin-left:auto;display:flex;align-items:stretch;gap:8px;flex-wrap:wrap}
+.topo-dir>*{display:flex;align-items:center;height:34px;box-sizing:border-box}
+.chip-data{font-size:13px;color:var(--texto2);border:1px solid var(--borda);border-radius:8px;padding:0 12px;background:var(--carta)}
+.chip-versao{font-size:12px;font-weight:800;color:var(--ouro);border:1px solid var(--ouro-escuro);border-radius:8px;padding:0 12px;letter-spacing:1px}
 
 .btn{border-radius:8px;padding:8px 14px;font-size:13px;font-weight:600;cursor:pointer;border:1px solid transparent;transition:filter .15s,background .15s}
 .btn:hover{filter:brightness(1.15)}

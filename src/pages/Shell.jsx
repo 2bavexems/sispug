@@ -103,12 +103,11 @@ export function Shell() {
       <header className="topo">
         <LogoEMS tamanho={52} />
         <div className="topo-titulos">
-          <div className="topo-nome">ESQUADRILHA DE MANUTENÇÃO E SUPRIMENTO - 2º BAVEX</div>
-          <div className="topo-sub">SisPug - Idealizado por Maj Pugliesi</div>
+          <div className="topo-nome">SisPug - Esquadrilha de Manutenção e Suprimento</div>
+          <div className="topo-sub">Criado por Maj Rafael <strong>Pugliesi</strong></div>
         </div>
         <div className="topo-dir">
           <span className="chip-data">📅 {hoje().toLocaleDateString("pt-BR")}</span>
-          <span className="chip-versao">V3</span>
           <button className="btn fantasma" onClick={exportar}>⬇ Backup</button>
           {modoEdicao && <button className="btn fantasma" onClick={() => fileRef.current.click()}>⬆ Importar</button>}
           {modoEdicao && <input ref={fileRef} type="file" accept=".json" hidden onChange={onImportFile} />}
@@ -119,6 +118,7 @@ export function Shell() {
           >
             {modoEdicao ? "🔓 Editando" : "🔒 Visualização"}
           </button>
+          <span className="chip-versao">V3</span>
         </div>
       </header>
 
