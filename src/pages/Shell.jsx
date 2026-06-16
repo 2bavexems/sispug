@@ -110,7 +110,7 @@ export function Shell() {
           <span className="chip-data">📅 {hoje().toLocaleDateString("pt-BR")}</span>
           <button className="btn fantasma" onClick={exportar}>⬇ Backup</button>
           {modoEdicao && <button className="btn fantasma" onClick={() => fileRef.current.click()}>⬆ Importar</button>}
-          {modoEdicao && <input ref={fileRef} type="file" accept=".json" hidden onChange={onImportFile} />}
+          {modoEdicao && <input ref={fileRef} type="file" accept=".json" style={{ display: "none" }} onChange={onImportFile} />}
           <button
             className={`btn-modo-edicao${modoEdicao ? " ativo" : ""}`}
             onClick={() => modoEdicao ? bloquear() : setModalPin({ aberto: true, pinDigitado: "" })}
