@@ -105,8 +105,8 @@ export function FleetProvider({ children }) {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       const snapshot = JSON.stringify(fleet);
+      ultimaSalvaRef.current = snapshot; // ANTES do save — evita eco real-time prematuro
       await salvarFrota(fleet);
-      ultimaSalvaRef.current = snapshot; // registra o que acabamos de salvar
       setSalvoEm(new Date());
     }, 400);
     return () => clearTimeout(saveTimer.current);

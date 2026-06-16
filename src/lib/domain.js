@@ -64,10 +64,12 @@ export const TSN_CAMPOS = {
 };
 
 // Um campo TSN específico está desatualizado (mais de 24h úteis desde seu
-// próprio preenchimento, ou nunca preenchido)
+// próprio preenchimento). Campo vazio → sem notificação.
 export function tsnCampoAtrasado(anv, campo) {
+  const valor = anv[campo]; // ex.: anv.tsnCelula
+  if (!valor && valor !== 0) return false; // campo vazio — sem notificação
   const ts = anv[TSN_CAMPOS[campo]];
-  if (!ts) return true; // Nunca foi atualizado
+  if (!ts) return true; // valor preenchido mas sem timestamp (dado importado) — atrasado
   return horasUteisDesde(ts) >= 24;
 }
 
