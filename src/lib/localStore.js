@@ -1,58 +1,65 @@
-// src/lib/localStore.js — armazenamento 100% local da frota (IndexedDB)
+// src/lib/localStore.js — armazenamento compartilhado via Supabase
 // ----------------------------------------------------------------------------
-// A frota inteira fica guardada no navegador via IndexedDB (biblioteca "idb").
-// Não precisa de internet, servidor nem login.
-// Use os botões "Backup" e "Importar" para salvar/restaurar um arquivo .json.
-//
-// DISPONIBILIDADE: em modo incógnito/privado (Firefox, Safari) o IndexedDB pode
-// estar bloqueado. Nesse caso o app funciona normalmente na sessão, mas os
-// dados não são persistidos ao fechar o navegador. O flag `storageDisponivel()`
-// permite exibir um aviso ao usuário.
+// A frota fica salva no Supabase (nuvem), numa única linha da tabela "frota".
+// Todos os usuários leem e escrevem no mesmo registro — dados sempre atualizados.
+// Atualizações em tempo real via Supabase Realtime (postgres_changes).
 // ----------------------------------------------------------------------------
-import { openDB } from "idb";
+import { createClient } from "@supabase/supabase-js";
 
-const DB_NAME = "sisdelu-local";
-const DB_VERSION = 1;
-const STORE = "dados";
-const CHAVE_FROTA = "frota";
+export const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_KEY
+);
 
-export const FROTA_VAZIA = { ordem: [], aeronaves: {} };
+export const FROTA_VAZIA = {
+  ordem: [],
+  aeronaves: {},
+  planejamento: {},
+  plnjConfirmado: {},
+};
 
-let _storageDisponivel = true;
-
-const dbPromise = openDB(DB_NAME, DB_VERSION, {
-  upgrade(db) {
-    if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE);
-  },
-}).catch((e) => {
-  _storageDisponivel = false;
-  console.warn("[SisDeLu] IndexedDB indisponível — dados não serão persistidos:", e);
-  return null;
-});
-
-/** Retorna true se o IndexedDB está disponível neste navegador/sessão. */
-export const storageDisponivel = () => _storageDisponivel;
-
-/** Lê a frota salva no navegador. Se nunca foi salva ou se o storage falhou, devolve uma frota vazia. */
+/** Carrega a frota do Supabase. */
 export async function carregarFrota() {
   try {
-    const db = await dbPromise;
-    if (!db) return structuredClone(FROTA_VAZIA);
-    const dados = await db.get(STORE, CHAVE_FROTA);
-    return dados || structuredClone(FROTA_VAZIA);
-  } catch (e) {
-    console.warn("[SisDeLu] Falha ao carregar frota do IndexedDB:", e);
+    const { data, error } = await supabase
+      .from("frota")
+      .select("dados")
+      .eq("id", 1)
+      .single();
+    if (error || !data) return structuredClone(FROTA_VAZIA);
+    return data.dados;
+  } catch {
     return structuredClone(FROTA_VAZIA);
   }
 }
 
-/** Salva a frota inteira no navegador (sobrescreve a versão anterior). */
-export async function salvarFrota(fleet) {
+/** Salva a frota inteira no Supabase (sobrescreve a versão anterior). */
+export async function salvarFrota(frota) {
   try {
-    const db = await dbPromise;
-    if (!db) return; // storage indisponível — ignora silenciosamente
-    await db.put(STORE, fleet, CHAVE_FROTA);
+    await supabase
+      .from("frota")
+      .update({ dados: frota, atualizado_em: new Date().toISOString() })
+      .eq("id", 1);
   } catch (e) {
-    console.warn("[SisDeLu] Falha ao salvar frota no IndexedDB:", e);
+    console.error("[SisDeLu] Erro ao salvar:", e);
   }
 }
+
+/**
+ * Assina atualizações em tempo real da tabela frota.
+ * Chama callback(novaFrota) sempre que outro usuário salvar uma alteração.
+ * Retorna o canal — use supabase.removeChannel(canal) para cancelar.
+ */
+export function subscribeToFrota(callback) {
+  return supabase
+    .channel("frota-realtime")
+    .on(
+      "postgres_changes",
+      { event: "UPDATE", schema: "public", table: "frota", filter: "id=eq.1" },
+      (payload) => callback(payload.new.dados)
+    )
+    .subscribe();
+}
+
+/** Compatibilidade — sempre disponível com Supabase. */
+export function storageDisponivel() { return true; }

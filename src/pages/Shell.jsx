@@ -147,7 +147,7 @@ export function Shell() {
         <div className="rodape-esq">
           {salvoEm && <span>💾 Dados salvos neste navegador às {salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>}
         </div>
-        <div className="rodape-dir">Sistema offline • IndexedDB • v3.0</div>
+        <div className="rodape-dir">Dados compartilhados • Supabase • v3.0</div>
       </footer>
 
       {/* ---- Modais ---- */}

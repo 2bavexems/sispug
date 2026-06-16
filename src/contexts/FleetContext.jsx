@@ -9,7 +9,7 @@
 // ----------------------------------------------------------------------------
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { carregarFrota, salvarFrota, storageDisponivel, FROTA_VAZIA } from "../lib/localStore";
+import { carregarFrota, salvarFrota, subscribeToFrota, supabase, FROTA_VAZIA } from "../lib/localStore";
 
 const FleetCtx = createContext(null);
 export const useFleet = () => useContext(FleetCtx);
@@ -26,6 +26,7 @@ export function FleetProvider({ children }) {
 
   const saveTimer = useRef(null);
   const carregado = useRef(false);
+  const ultimaSalvaRef = useRef(null); // evita eco da própria gravação no real-time
 
   // --------------------------------------------------------------------------
   // CARGA inicial — lê a frota salva no navegador (ou começa vazia)
@@ -49,14 +50,6 @@ export function FleetProvider({ children }) {
     cargaIniciada.current = true;
 
     carregarFrota().then((f) => {
-      // Aviso se o armazenamento local estiver bloqueado (ex.: modo incógnito)
-      if (!storageDisponivel()) {
-        toast("⚠️ Armazenamento local indisponível. Os dados não serão salvos nesta sessão.", {
-          duration: 10000,
-          style: { background: "#3a2a0a", color: "#e7bd58", border: "1px solid #7c6224" },
-        });
-      }
-
       // Migração: garante que todas as aeronaves têm propriedades obrigatórias
       try {
         const aeronavesMigradas = {};
@@ -92,13 +85,28 @@ export function FleetProvider({ children }) {
   }, []);
 
   // --------------------------------------------------------------------------
-  // SALVAR — toda vez que a frota muda, salva no navegador (debounced)
+  // REAL-TIME — sincroniza com outros usuários via Supabase
+  // Quando outro usuário salva, a subscription dispara e atualiza o estado local.
+  // O snapshot `ultimaSalvaRef` evita que a própria gravação cause um loop.
+  // --------------------------------------------------------------------------
+  useEffect(() => {
+    const canal = subscribeToFrota((novaFrota) => {
+      if (JSON.stringify(novaFrota) === ultimaSalvaRef.current) return;
+      setFleet(novaFrota);
+    });
+    return () => supabase.removeChannel(canal);
+  }, []);
+
+  // --------------------------------------------------------------------------
+  // SALVAR — toda vez que a frota muda, salva no Supabase (debounced)
   // --------------------------------------------------------------------------
   useEffect(() => {
     if (!fleet || !carregado.current) return;
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
+      const snapshot = JSON.stringify(fleet);
       await salvarFrota(fleet);
+      ultimaSalvaRef.current = snapshot; // registra o que acabamos de salvar
       setSalvoEm(new Date());
     }, 400);
     return () => clearTimeout(saveTimer.current);
