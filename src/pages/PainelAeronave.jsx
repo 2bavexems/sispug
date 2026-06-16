@@ -10,7 +10,7 @@ import { Modal } from "../components/Modal";
 import { Selo } from "../components/Selo";
 
 export function PainelAeronave({ numeral, remover }) {
-  const { fleet, updateAeronave, updateInspecoes, toggleTravado, confirmarMnt } = useFleet();
+  const { fleet, updateAeronave, updateInspecoes, toggleTravado, confirmarMnt, modoEdicao } = useFleet();
   const anv = fleet.aeronaves[numeral];
 
   const campo = (k) => ({
@@ -67,7 +67,7 @@ export function PainelAeronave({ numeral, remover }) {
 
       <section className="cartao">
         <h3 className="secao-titulo">Dados Gerais</h3>
-        <div className="grade-form">
+        <div className="grade-form" {...(!modoEdicao ? { inert: "" } : {})}>
           <Campo rotulo="Modelo" vazio={estaVazio(anv.modelo)}><select {...campo("modelo")}>{MODELOS.map((m) => <option key={m}>{m}</option>)}</select></Campo>
           <Campo rotulo="Situação" vazio={estaVazio(anv.situacao)}><select className={corSituacao(anv.situacao)} {...campo("situacao")}>{SITUACOES.map((s) => <option key={s}>{s}</option>)}</select></Campo>
           <Campo rotulo="Local" vazio={estaVazio(anv.local)}><input {...campo("local")} /></Campo>
@@ -95,7 +95,7 @@ export function PainelAeronave({ numeral, remover }) {
             {estaTravado("inspecoes") ? "🔒" : "🔓"}
           </button>
         </div>
-        <div className="grade-form">
+        <div className="grade-form" {...(!modoEdicao ? { inert: "" } : {})}>
           <Campo rotulo="A/T sem extensão" vazio={estaVazio(anv.inspecoes.atSem)}><input type="date" disabled={estaTravado("inspecoes")} {...insp("atSem")} /><Selo valor={diasAte(anv.inspecoes.atSem)} u="d" tipo="at" /></Campo>
           <Campo rotulo="A/T com extensão" vazio={estaVazio(anv.inspecoes.atCom)}><input type="date" disabled={estaTravado("inspecoes")} {...insp("atCom")} /><Selo valor={diasAte(anv.inspecoes.atCom)} u="d" tipo="at" /></Campo>
           <Campo rotulo="Inspeção C" vazio={estaVazio(anv.inspecoes.inspC)}><input type="date" disabled={estaTravado("inspecoes")} {...insp("inspC")} /><Selo valor={diasAte(anv.inspecoes.inspC)} u="d" tipo="inspC" /></Campo>
@@ -124,7 +124,7 @@ export function PainelAeronave({ numeral, remover }) {
 }
 
 function TabelaManutencao({ titulo, secao, numeral, comAplicacao }) {
-  const { fleet, addManutencao, updateManutencao, duplicateManutencao, deleteManutencao, toggleTravado } = useFleet();
+  const { fleet, addManutencao, updateManutencao, duplicateManutencao, deleteManutencao, toggleTravado, modoEdicao } = useFleet();
   const anv = fleet.aeronaves[numeral];
   const [busca, setBusca] = useState("");
   const [modalExcluir, setModalExcluir] = useState({ aberto: false, row: null });
@@ -193,7 +193,7 @@ function TabelaManutencao({ titulo, secao, numeral, comAplicacao }) {
               <th className="col-acao"></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody {...(!modoEdicao ? { inert: "" } : {})}>
             {visiveis.map((r) => {
               const u = r.tipo === "Horária" ? "h" : "d";
               const pS = potencial(r, r.limiteSem, anv, secao);
@@ -259,7 +259,7 @@ function TabelaManutencao({ titulo, secao, numeral, comAplicacao }) {
 }
 
 function TabelaAnotacoes({ numeral }) {
-  const { fleet, addAnotacao, updateAnotacao, deleteAnotacao } = useFleet();
+  const { fleet, addAnotacao, updateAnotacao, deleteAnotacao, modoEdicao } = useFleet();
   const anv = fleet.aeronaves[numeral];
   const anotacoes = anv.anotacoes || [];
   const [modalExcluir, setModalExcluir] = useState({ aberto: false, id: null });
@@ -288,7 +288,7 @@ function TabelaAnotacoes({ numeral }) {
               <th style={{ width: "40px" }}></th>
             </tr>
           </thead>
-          <tbody>
+          <tbody {...(!modoEdicao ? { inert: "" } : {})}>
             {anotacoes.map((n) => {
               const estaVazio = (valor) => !valor && valor !== 0;
               return (
