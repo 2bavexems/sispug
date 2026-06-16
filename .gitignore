@@ -1,0 +1,17 @@
+node_modules
+dist
+.DS_Store
+
+# Variáveis de ambiente (nunca versionar — contêm credenciais)
+.env
+.env.local
+.env.*.local
+
+# Arquivos temporários do Vite
+*.timestamp-*.mjs
+
+# Arquivo de demo (não deve ir para produção)
+sisdelu-demo-frota.json
+
+# Arquivo de backup de tema (use controle de versão para isso)
+src/styles/styles.backup-*.js
