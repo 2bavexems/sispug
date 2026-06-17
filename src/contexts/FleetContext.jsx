@@ -26,7 +26,15 @@ export function FleetProvider({ children }) {
 
   const saveTimer = useRef(null);
   const carregado = useRef(false);
-  const ultimaSalvaRef = useRef(null); // evita eco da própria gravação no real-time
+  // Conjunto de snapshots que NÓS gravamos — evita o eco da própria gravação no
+  // real-time. Precisa ser um Set (e não um único valor): em edições rápidas
+  // podem existir várias gravações em voo ao mesmo tempo, e o eco de uma
+  // gravação ANTIGA pode chegar pela rede DEPOIS de uma mais nova já ter sido
+  // enviada. Com um único snapshot, esse eco atrasado não batia com o último
+  // valor salvo e era aplicado via setFleet, revertendo o que o usuário acabara
+  // de digitar (bug do TSN: "os números voltam sozinhos / não digita"). Com um
+  // Set, qualquer eco de uma gravação nossa é reconhecido e ignorado.
+  const enviadosRef = useRef(new Set());
 
   // --------------------------------------------------------------------------
   // CARGA inicial — lê a frota salva no navegador (ou começa vazia)
@@ -91,7 +99,10 @@ export function FleetProvider({ children }) {
   // --------------------------------------------------------------------------
   useEffect(() => {
     const canal = subscribeToFrota((novaFrota) => {
-      if (JSON.stringify(novaFrota) === ultimaSalvaRef.current) return;
+      const recebido = JSON.stringify(novaFrota);
+      // Se este payload é o eco de uma gravação nossa (mesmo uma antiga/atrasada),
+      // ignora — não sobrescreve o estado local com dados que nós já enviamos.
+      if (enviadosRef.current.has(recebido)) return;
       setFleet(novaFrota);
     });
     return () => supabase.removeChannel(canal);
@@ -105,9 +116,12 @@ export function FleetProvider({ children }) {
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       const snapshot = JSON.stringify(fleet);
-      ultimaSalvaRef.current = snapshot; // ANTES do save — evita eco real-time prematuro
+      enviadosRef.current.add(snapshot); // ANTES do save — evita eco real-time prematuro
       await salvarFrota(fleet);
       setSalvoEm(new Date());
+      // Remove o snapshot do conjunto após uma janela folgada para o eco voltar
+      // pela rede. Mantém o Set pequeno sem descartar ecos atrasados cedo demais.
+      setTimeout(() => enviadosRef.current.delete(snapshot), 15000);
     }, 400);
     return () => clearTimeout(saveTimer.current);
   }, [fleet]);
