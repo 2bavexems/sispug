@@ -1,6 +1,6 @@
 // src/lib/domain.js
 // ----------------------------------------------------------------------------
-// Lógica de domínio do SisDeLu — potencial, criticidade, ordenação de limites.
+// Lógica de domínio do SisPug — potencial, criticidade, ordenação de limites.
 // ----------------------------------------------------------------------------
 
 export const SITUACOES = ["Disponível", "Restr. IFR", "Restr. OVN", "Restr. Op", "Indisponível"];

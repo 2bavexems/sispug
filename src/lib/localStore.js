@@ -41,7 +41,7 @@ export async function salvarFrota(frota) {
       .update({ dados: frota, atualizado_em: new Date().toISOString() })
       .eq("id", 1);
   } catch (e) {
-    console.error("[SisDeLu] Erro ao salvar:", e);
+    console.error("[SisPug] Erro ao salvar:", e);
   }
 }
 

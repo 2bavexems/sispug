@@ -1,4 +1,4 @@
-# CLAUDE.md — Contexto do Projeto SisPug / SisDeLu V3
+# CLAUDE.md — Contexto do Projeto SisPug
 
 Leia este arquivo inteiro antes de qualquer alteração no projeto.
 
@@ -29,7 +29,7 @@ Leia este arquivo inteiro antes de qualquer alteração no projeto.
 ## Estrutura de arquivos relevantes
 
 ```
-sisdelu-v3/
+sispug/
 ├── index.html                        # Ponto de entrada HTML (favicon aqui)
 ├── .env.local                        # Variáveis de ambiente (NÃO commitado)
 ├── public/
@@ -83,13 +83,13 @@ As mesmas variáveis estão configuradas no painel do Vercel como variáveis de 
 O git já está configurado com o token no remote. Basta:
 
 ```bash
-cd "/sessions/.../mnt/Claude - Central EMS/SisDeLu(V3/sisdelu-v3"
+cd <pasta-do-projeto>/sispug
 git add <arquivos>
 git commit -m "descrição"
 git push
 ```
 
-> **Atenção ao path do sandbox:** a pasta do usuário em `/Users/rafaelpugliesi/Documents/Claude - Central EMS/` é montada no sandbox Linux em `/sessions/pensive-dreamy-goldberg/mnt/Claude - Central EMS/`. Use o path do sandbox nos comandos bash.
+> **Atenção ao path do sandbox:** a pasta do usuário em `/Users/rafaelpugliesi/Claude/Projects/SisPug/` é montada no sandbox Linux em `/sessions/<id-da-sessão>/mnt/SisPug/`. Use o path do sandbox nos comandos bash.
 
 ---
 

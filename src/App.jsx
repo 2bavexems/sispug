@@ -22,6 +22,6 @@ export default function App() {
 
 function Conteudo() {
   const { fleet } = useFleet();
-  if (!fleet) return <Carregando texto="Carregando SisDeLu…" />;
+  if (!fleet) return <Carregando texto="Carregando SisPug…" />;
   return <Shell />;
 }

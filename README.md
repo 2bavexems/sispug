@@ -1,10 +1,10 @@
-# SisDeLu V3 — Sistema de Gerenciamento de Frota (EMS / 2º BAVEX)
+# SisPug — Sistema de Gerenciamento de Frota (EMS / 2º BAVEX)
 
 > Desenvolvido por Maj Pugliesi · Esquadrilha de Manutenção e Suprimento — 2º BAVEX
 
 ## O que é
 
-SisDeLu V3 é uma aplicação web **100% offline** para controle de prontidão, manutenção e planejamento da frota de aeronaves do 2º BAVEX. Não requer internet, servidor, login nem conta em nuvem. Todos os dados ficam armazenados localmente no navegador (IndexedDB).
+SisPug é uma aplicação web **100% offline** para controle de prontidão, manutenção e planejamento da frota de aeronaves do 2º BAVEX. Não requer internet, servidor, login nem conta em nuvem. Todos os dados ficam armazenados localmente no navegador (IndexedDB).
 
 ## Tecnologias
 
@@ -43,7 +43,7 @@ SisDeLu V3 é uma aplicação web **100% offline** para controle de prontidão, 
 ## Estrutura do projeto
 
 ```
-sisdelu-v3/
+sispug/
 ├── index.html
 ├── vite.config.js
 ├── package.json

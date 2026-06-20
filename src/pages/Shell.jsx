@@ -81,7 +81,7 @@ export function Shell() {
         if (!data.ordem || !data.aeronaves) throw new Error("Formato inválido");
         setImportPendente(data);
       } catch {
-        toast.error("Arquivo inválido. Verifique se é um backup do SisDeLu.");
+        toast.error("Arquivo inválido. Verifique se é um backup do SisPug.");
       }
     };
     reader.readAsText(file);

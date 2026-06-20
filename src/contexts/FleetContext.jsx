@@ -84,7 +84,7 @@ export function FleetProvider({ children }) {
         const frotaMigrada = { ...f, aeronaves: aeronavesMigradas };
         setFleet(frotaMigrada);
       } catch (e) {
-        console.error("[SisDeLu] Erro na migração dos dados — iniciando com frota vazia:", e);
+        console.error("[SisPug] Erro na migração dos dados — iniciando com frota vazia:", e);
         toast.error("Erro ao carregar dados salvos. Iniciando com frota vazia.");
         setFleet(structuredClone(FROTA_VAZIA));
       }
@@ -300,7 +300,7 @@ export function FleetProvider({ children }) {
     const blob = new Blob([JSON.stringify(fleet, null, 2)], { type: "application/json" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `sisdelu-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.download = `sispug-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   };
