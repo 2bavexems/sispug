@@ -4,7 +4,7 @@
 
 ## O que é
 
-SisPug é uma aplicação web **100% offline** para controle de prontidão, manutenção e planejamento da frota de aeronaves do 2º BAVEX. Não requer internet, servidor, login nem conta em nuvem. Todos os dados ficam armazenados localmente no navegador (IndexedDB).
+SisPug é uma aplicação web para controle de prontidão, manutenção e planejamento da frota de aeronaves do 2º BAVEX. Os dados ficam em uma base **Supabase** na nuvem (compartilhada entre os usuários) e sincronizam em **tempo real** — quando um usuário edita, os demais veem a atualização automaticamente. O controle de edição é feito por um PIN dentro do próprio app.
 
 ## Tecnologias
 
@@ -12,9 +12,10 @@ SisPug é uma aplicação web **100% offline** para controle de prontidão, manu
 |--------|-----------|
 | UI | React 18 + Vite 5 |
 | Estilos | CSS-in-JS (`src/styles/styles.js`) — string de template injetada via `<style>` |
-| Persistência | IndexedDB via biblioteca `idb` (`src/lib/localStore.js`) |
+| Persistência | Supabase (Postgres + Realtime) — `src/lib/localStore.js` |
 | Notificações | `react-hot-toast` |
 | Estado global | React Context (`FleetContext`) com auto-save debounced (400 ms) |
+| Deploy | Vercel (deploy automático a cada `git push` na branch `main`) |
 
 ## Funcionalidades principais
 
@@ -27,7 +28,7 @@ SisPug é uma aplicação web **100% offline** para controle de prontidão, manu
   2. Manutenção 100h / 100d pendente de confirmação (às segundas-feiras)
   3. Planejamento semanal não confirmado (sextas-feiras ≥ 08:00)
 - **Backup / Importação** — exporta a frota para `.json` e restaura de arquivo
-- **Modo incógnito detectado** — aviso automático via toast quando o IndexedDB está bloqueado
+- **Sincronização em tempo real** — alterações de um usuário aparecem nos demais automaticamente (Supabase Realtime)
 
 ## Criticidade de limites
 
@@ -53,7 +54,7 @@ sispug/
 │   │   └── styles.js             # Todo o CSS como template literal
 │   ├── lib/
 │   │   ├── domain.js             # Regras de negócio, cálculos, notificações
-│   │   └── localStore.js         # IndexedDB (carregarFrota / salvarFrota / storageDisponivel)
+│   │   └── localStore.js         # Cliente Supabase (carregarFrota / salvarFrota / subscribeToFrota)
 │   ├── contexts/
 │   │   └── FleetContext.jsx      # Estado global + todas as mutações + auto-save
 │   ├── components/
@@ -86,16 +87,15 @@ npm run dev
 npm run build
 ```
 
-O build gera uma pasta `dist/` com arquivos estáticos. Basta hospedar em qualquer servidor web estático (GitHub Pages, Nginx, etc.) — **não há backend**.
+O build gera uma pasta `dist/` com arquivos estáticos, publicada automaticamente pela **Vercel** a cada `git push` na branch `main`. O backend de dados é o **Supabase** (configurado via variáveis de ambiente `VITE_SUPABASE_URL` e `VITE_SUPABASE_KEY`).
 
 ## Armazenamento dos dados
 
-- Todos os dados ficam **exclusivamente no navegador** do usuário (IndexedDB).
-- Nenhuma informação é enviada para servidores externos.
-- Cada edição é salva automaticamente ~400 ms após a última alteração.
+- Os dados ficam em uma base **Supabase** na nuvem, numa única linha da tabela `frota` (coluna `dados` em JSONB), compartilhada por todos os usuários.
+- Cada edição é salva automaticamente ~400 ms após a última alteração e propagada em tempo real aos demais usuários.
 - O rodapé exibe o horário da última gravação.
-- **Backup regular é essencial**: use **⬇ Backup** para gerar um `.json` e **⬆ Importar** para restaurar.
-- Em modo privado/incógnito o IndexedDB pode estar bloqueado; o sistema detecta e avisa automaticamente.
+- **Backup regular é recomendado**: use **⬇ Backup** para gerar um `.json` e **⬆ Importar** para restaurar.
+- As credenciais de acesso ao Supabase ficam em variáveis de ambiente (`.env.local` localmente e no painel da Vercel) — nunca versionadas.
 
 ## Contribuição
 
