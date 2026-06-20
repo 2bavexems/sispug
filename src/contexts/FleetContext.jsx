@@ -210,6 +210,58 @@ export function FleetProvider({ children }) {
       manutencoes: frota.manutencoes.filter((m) => m.id !== id),
     }));
 
+  // --------------------------------------------------------------------------
+  // GERENTE TASA — Planejamento de Missões + Pessoal e Material
+  // (salvo junto da frota, mesmo mecanismo do Plnj Mnt)
+  // --------------------------------------------------------------------------
+  const PESSOAL_VAZIO = { especialistas: [], auxiliares: [], motoristas: [] };
+  const patchTasa = (fn) =>
+    setFleet((f) => {
+      const base = f.tasa || { missoes: [], pessoal: { ...PESSOAL_VAZIO }, material: [] };
+      const tasa = {
+        missoes: base.missoes || [],
+        pessoal: { ...PESSOAL_VAZIO, ...(base.pessoal || {}) },
+        material: base.material || [],
+      };
+      return { ...f, tasa: fn(tasa) };
+    });
+
+  // Missões
+  const addMissaoTasa = () =>
+    patchTasa((t) => ({
+      ...t,
+      missoes: [
+        ...t.missoes,
+        { id: uid(), semana: "S", missao: "", dataInicial: "", dataFinal: "", pessoal: "", pessoalOk: "OK", obs: "" },
+      ],
+    }));
+  const updateMissaoTasa = (id, field, value) =>
+    patchTasa((t) => ({ ...t, missoes: t.missoes.map((m) => (m.id === id ? { ...m, [field]: value } : m)) }));
+  const deleteMissaoTasa = (id) =>
+    patchTasa((t) => ({ ...t, missoes: t.missoes.filter((m) => m.id !== id) }));
+
+  // Pessoal (colunas: especialistas, auxiliares, motoristas)
+  const addPessoalTasa = (col) =>
+    patchTasa((t) => ({ ...t, pessoal: { ...t.pessoal, [col]: [...t.pessoal[col], { id: uid(), nome: "" }] } }));
+  const updatePessoalTasa = (col, id, value) =>
+    patchTasa((t) => ({
+      ...t,
+      pessoal: { ...t.pessoal, [col]: t.pessoal[col].map((p) => (p.id === id ? { ...p, nome: value } : p)) },
+    }));
+  const deletePessoalTasa = (col, id) =>
+    patchTasa((t) => ({ ...t, pessoal: { ...t.pessoal, [col]: t.pessoal[col].filter((p) => p.id !== id) } }));
+
+  // Material
+  const addMaterialTasa = () =>
+    patchTasa((t) => ({
+      ...t,
+      material: [...t.material, { id: uid(), material: "", total: "", disponivel: "", indisponivel: "", obs: "" }],
+    }));
+  const updateMaterialTasa = (id, field, value) =>
+    patchTasa((t) => ({ ...t, material: t.material.map((m) => (m.id === id ? { ...m, [field]: value } : m)) }));
+  const deleteMaterialTasa = (id) =>
+    patchTasa((t) => ({ ...t, material: t.material.filter((m) => m.id !== id) }));
+
   const addManutencao = (numeral, secao) => {
     const row = {
       id: uid(), os: "", descricao: "", tipo: "Calendárica",
@@ -319,6 +371,9 @@ export function FleetProvider({ children }) {
       addAnotacao, updateAnotacao, deleteAnotacao,
       addAeronave, removeAeronave, exportar, importar, confirmarPlnj,
       addManutencaoPlnj, updateManutencaoPlnj, deleteManutencaoPlnj,
+      addMissaoTasa, updateMissaoTasa, deleteMissaoTasa,
+      addPessoalTasa, updatePessoalTasa, deletePessoalTasa,
+      addMaterialTasa, updateMaterialTasa, deleteMaterialTasa,
     }}>
       {children}
     </FleetCtx.Provider>

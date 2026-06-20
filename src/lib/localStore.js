@@ -16,6 +16,11 @@ export const FROTA_VAZIA = {
   aeronaves: {},
   planejamento: {},
   plnjConfirmado: {},
+  tasa: {
+    missoes: [],
+    pessoal: { especialistas: [], auxiliares: [], motoristas: [] },
+    material: [],
+  },
 };
 
 /** Carrega a frota do Supabase. */

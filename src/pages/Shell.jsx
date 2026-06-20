@@ -9,6 +9,7 @@ import { Campo } from "../components/Campo";
 import { VisaoComando } from "./VisaoComando";
 import { VisaoEMS } from "./VisaoEMS";
 import { Gestao } from "./Gestao";
+import { GerenteTasa } from "./GerenteTasa";
 import { PainelAeronave } from "./PainelAeronave";
 
 export function Shell() {
@@ -93,7 +94,7 @@ export function Shell() {
     setImportPendente(null);
   };
 
-  const ehDetalhe = !["comando", "ems", "gestao"].includes(visao);
+  const ehDetalhe = !["comando", "ems", "gestao", "tasa"].includes(visao);
   const notif = notificacoes(fleet);
 
   return (
@@ -132,12 +133,14 @@ export function Shell() {
           <button className={visao === "comando" ? "ativa" : ""} onClick={() => setVisao("comando")}>Cmdo Btl</button>
           <button className={visao === "ems" ? "ativa" : ""} onClick={() => setVisao("ems")}>Cmt EMS</button>
           <button className={visao === "gestao" || ehDetalhe ? "ativa" : ""} onClick={() => setVisao("gestao")}>Gerentes de Frota{notif.qualquer && <i className="led-notif" title="Há pendências" />}</button>
+          <button className={visao === "tasa" ? "ativa" : ""} onClick={() => setVisao("tasa")}>Gerente TASA</button>
         </div>
         <div className="atualizado">Atualizado em: {hoje().toLocaleDateString("pt-BR")}, {new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</div>
 
         {visao === "comando" && <VisaoComando fleet={fleet} abrir={(n) => setVisao(n)} />}
         {visao === "ems" && <VisaoEMS fleet={fleet} abrir={(n) => setVisao(n)} />}
         {visao === "gestao" && <Gestao fleet={fleet} abrir={(n) => setVisao(n)} adicionar={adicionarAeronave} />}
+        {visao === "tasa" && <GerenteTasa />}
         {ehDetalhe && fleet.aeronaves[visao] && (
           <PainelAeronave numeral={visao} remover={() => removerAeronave(visao)} />
         )}

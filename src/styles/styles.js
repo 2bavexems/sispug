@@ -823,4 +823,26 @@ select.plnj-input-select option{background:#12294c;color:var(--texto)}
 .ems-plnj-prazo.alerta{color:#e7bd58}
 .ems-plnj-prazo.crit{color:#f29a93}
 .ems-plnj-prazo.venc{color:#fff;font-weight:700}
+
+/* ── Gerente TASA ── */
+.tasa-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:20px;align-items:start;padding:4px 0}
+.tasa-split .plnj-secao-card{min-width:0}
+
+/* Pessoal TASA — 3 colunas de listas livres */
+.tasa-pessoal-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px 16px}
+.tasa-pessoal-col{display:flex;flex-direction:column;gap:10px;min-width:0}
+.tasa-pessoal-col-cab{font-size:10.5px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#7db5e8;text-align:center;padding:7px 6px;background:rgba(122,181,232,0.08);border:1px solid var(--borda-azul);border-radius:8px}
+.tasa-pessoal-lista{display:flex;flex-direction:column;gap:7px;min-height:8px}
+.tasa-pessoal-linha{display:flex;align-items:center;gap:6px}
+.tasa-pessoal-linha .plnj-input{flex:1;min-width:0}
+.tasa-vazio-mini{text-align:center;color:var(--rotulo);font-style:italic;font-size:12px;padding:4px 0}
+.tasa-add-col{width:100%;justify-content:center;font-size:12px;padding:7px}
+.tasa-num{text-align:center;font-family:var(--num);font-variant-numeric:tabular-nums}
+
+@media (max-width:1100px){
+  .tasa-split{grid-template-columns:1fr}
+}
+@media (max-width:640px){
+  .tasa-pessoal-cols{grid-template-columns:1fr}
+}
 `;
