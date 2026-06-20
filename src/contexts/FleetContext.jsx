@@ -17,6 +17,35 @@ export const useFleet = () => useContext(FleetCtx);
 const uid = () => crypto.randomUUID();
 const PIN_EDICAO = "5215";
 
+// Serialização canônica: ordena as chaves recursivamente e ignora valores
+// `undefined` (igual ao JSON.stringify). É usada SÓ para reconhecer o eco das
+// nossas próprias gravações no real-time.
+//
+// Por que isso importa: a coluna `dados` é jsonb e o Postgres reordena as
+// chaves dos objetos (por tamanho/bytes). Assim, o JSON que volta pelo
+// real-time não é byte-a-byte igual ao que enviamos. A dedup antiga comparava
+// JSON.stringify cru, então um eco atrasado de uma gravação ANTERIOR deixava de
+// ser reconhecido como nosso e era aplicado via setFleet — revertendo edições
+// recém-feitas. Isso só apareceu depois da chave "tasa" (a mais curta) entrar
+// no topo, mudando a ordem do jsonb. Comparando de forma canônica, a ordem das
+// chaves deixa de importar.
+function stableStringify(value) {
+  if (value === undefined || typeof value === "function") return undefined;
+  if (value === null) return "null";
+  if (Array.isArray(value)) {
+    return "[" + value.map((v) => stableStringify(v) ?? "null").join(",") + "]";
+  }
+  if (typeof value === "object") {
+    const partes = [];
+    for (const k of Object.keys(value).sort()) {
+      const sv = stableStringify(value[k]);
+      if (sv !== undefined) partes.push(JSON.stringify(k) + ":" + sv);
+    }
+    return "{" + partes.join(",") + "}";
+  }
+  return JSON.stringify(value);
+}
+
 export function FleetProvider({ children }) {
   const [fleet, setFleet] = useState(null);
   const [salvoEm, setSalvoEm] = useState(null);
@@ -99,7 +128,7 @@ export function FleetProvider({ children }) {
   // --------------------------------------------------------------------------
   useEffect(() => {
     const canal = subscribeToFrota((novaFrota) => {
-      const recebido = JSON.stringify(novaFrota);
+      const recebido = stableStringify(novaFrota);
       // Se este payload é o eco de uma gravação nossa (mesmo uma antiga/atrasada),
       // ignora — não sobrescreve o estado local com dados que nós já enviamos.
       if (enviadosRef.current.has(recebido)) return;
@@ -115,7 +144,7 @@ export function FleetProvider({ children }) {
     if (!fleet || !carregado.current) return;
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
-      const snapshot = JSON.stringify(fleet);
+      const snapshot = stableStringify(fleet);
       enviadosRef.current.add(snapshot); // ANTES do save — evita eco real-time prematuro
       await salvarFrota(fleet);
       setSalvoEm(new Date());
