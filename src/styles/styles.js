@@ -802,4 +802,25 @@ select.plnj-input-select option{background:#12294c;color:var(--texto)}
 @media (max-width:1100px){
   .pmnt-split{grid-template-columns:1fr}
 }
+
+/* ── Resumo do Planejamento na Cmt EMS (compacto, somente leitura) ── */
+.ems-plnj{padding:14px 18px}
+.ems-plnj-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.ems-plnj-titulo{margin:0;font-size:12px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:#7db5e8;border-left:3px solid var(--ouro);padding-left:10px}
+.ems-plnj-contagem{font-size:11px;font-weight:700;color:var(--texto2);font-family:var(--num);font-variant-numeric:tabular-nums;background:rgba(122,181,232,0.08);border:1px solid var(--borda);border-radius:7px;padding:3px 9px;white-space:nowrap}
+.ems-plnj-tabela{width:100%;border-collapse:collapse}
+.ems-plnj-tabela th{text-align:left;padding:7px 10px;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--rotulo);border-bottom:1px solid var(--borda-clara);white-space:nowrap;background:#102a4c}
+.ems-plnj-tabela td{padding:6px 10px;border-bottom:1px solid var(--borda);font-size:12.5px;color:var(--texto);vertical-align:middle}
+.ems-plnj-tabela tbody tr:last-child td{border-bottom:none}
+.ems-plnj-tabela tbody tr:hover{background:rgba(125,181,232,0.06)}
+.ems-plnj-tabela .anv{font-size:13px;font-weight:800}
+.ems-plnj-tabela .col-sem{width:64px}
+.ems-plnj-tabela .col-prazo{width:90px}
+.ems-plnj-tabela .col-st{width:48px;text-align:center}
+.ems-plnj-tabela td.col-st,.ems-plnj-tabela th.col-st{text-align:center}
+.ems-plnj-sem{display:inline-block;font-size:10.5px;font-weight:800;letter-spacing:0.4px;font-family:var(--num);color:#9fc1e6;background:rgba(122,181,232,0.1);border:1px solid var(--borda-clara);border-radius:6px;padding:2px 7px;min-width:30px;text-align:center}
+.ems-plnj-sem.s-S{color:#ffd98a;background:rgba(220,167,62,0.14);border-color:var(--ouro-escuro)}
+.ems-plnj-prazo.alerta{color:#e7bd58}
+.ems-plnj-prazo.crit{color:#f29a93}
+.ems-plnj-prazo.venc{color:#fff;font-weight:700}
 `;

@@ -1,8 +1,11 @@
 // src/pages/VisaoEMS.jsx — Leitura Técnica (visão da EMS)
 import { useState } from "react";
-import { MODELOS, limitesOrdenados, classSituacao, diasAte } from "../lib/domain";
+import { MODELOS, MODELO_DESIG, limitesOrdenados, classSituacao, diasAte, fmtData } from "../lib/domain";
 import { SeloSituacao } from "../components/SeloSituacao";
 import { ChipValor } from "../components/ChipValor";
+
+// Ordem das semanas para ordenar o resumo do planejamento
+const ORDEM_SEMANA = { "S": 0, "S+1": 1, "S+2": 2, "Outros": 3 };
 
 export function VisaoEMS({ fleet, abrir }) {
   const [filtro, setFiltro] = useState("Todos");
@@ -12,6 +15,17 @@ export function VisaoEMS({ fleet, abrir }) {
     if (MODELOS.includes(filtro)) return a.modelo === filtro;
     return false;
   };
+
+  // Resumo do planejamento (aba Plnj Mnt) — somente leitura, ordenado por semana
+  const planej = fleet.planejamento || {};
+  const modelosPlan = MODELOS.filter((m) => filtro === "Todos" || m === filtro);
+  const itensPlan = modelosPlan
+    .flatMap((m) => (planej[m]?.manutencoes ?? []).map((mn) => ({ ...mn, modelo: m })))
+    .sort((a, b) => {
+      const sa = ORDEM_SEMANA[a.semana] ?? 9, sb = ORDEM_SEMANA[b.semana] ?? 9;
+      if (sa !== sb) return sa - sb;
+      return (a.prazo || "").localeCompare(b.prazo || "");
+    });
 
   return (
     <>
@@ -81,6 +95,51 @@ export function VisaoEMS({ fleet, abrir }) {
           <span><i className="led alerta" /> Alerta (limites ≤ 20 h/dias · A/T ≤ 90 d · Insp C ≤ 365 d)</span>
           <span><i className="led normal" /> Normal</span>
           <span>Clique na linha para abrir a aeronave</span>
+        </div>
+      </div>
+
+      {/* Resumo do Planejamento de Manutenções (próximas 3 semanas) */}
+      <div className="cartao card-azul ems-plnj">
+        <div className="ems-plnj-cab">
+          <h3 className="ems-plnj-titulo">Planejamento de Manutenções · Próximas 3 Semanas</h3>
+          <span className="ems-plnj-contagem">{itensPlan.length} {itensPlan.length === 1 ? "manutenção" : "manutenções"}</span>
+        </div>
+        <div className="rolagem">
+          <table className="tabela ems-plnj-tabela">
+            <thead>
+              <tr>
+                <th className="col-sem">Semana</th>
+                <th className="col-anv">Anv</th>
+                <th>Modelo</th>
+                <th>Manutenção</th>
+                <th className="col-prazo">Prazo</th>
+                <th className="col-st">Sup.</th>
+                <th className="col-st">Ferr.</th>
+                <th>Observações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {itensPlan.map((m) => {
+                const d = m.prazo ? diasAte(m.prazo) : null;
+                const clsPrazo = d === null ? "" : d < 0 ? " venc" : d <= 7 ? " crit" : d <= 21 ? " alerta" : "";
+                return (
+                  <tr key={m.modelo + m.id}>
+                    <td><span className={"ems-plnj-sem s-" + (m.semana || "").replace("+", "")}>{m.semana || "—"}</span></td>
+                    <td className="mono anv">{m.anv || "—"}</td>
+                    <td className="mono">{MODELO_DESIG[m.modelo] || m.modelo}</td>
+                    <td>{m.manutencao || "—"}</td>
+                    <td className={"mono ems-plnj-prazo" + clsPrazo}>{m.prazo ? fmtData(m.prazo) : "—"}</td>
+                    <td><i className={"led " + (m.suprimento === "OK" ? "ok" : "vencido")} title={m.suprimento} /></td>
+                    <td><i className={"led " + (m.ferramental === "OK" ? "ok" : "vencido")} title={m.ferramental} /></td>
+                    <td className="obs">{m.obs || "—"}</td>
+                  </tr>
+                );
+              })}
+              {itensPlan.length === 0 && (
+                <tr><td colSpan="8" className="vazio">Nenhuma manutenção planejada.</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </>
