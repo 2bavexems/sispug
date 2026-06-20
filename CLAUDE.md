@@ -78,18 +78,39 @@ As mesmas variáveis estão configuradas no painel do Vercel como variáveis de 
 
 ---
 
-## Como fazer push para o GitHub
+## Fluxo de trabalho diário (Cowork) — editar e publicar
 
-O git já está configurado com o token no remote. Basta:
+O usuário pede alterações no dia a dia e espera: **arquivos editados + publicado no GitHub** (a Vercel publica sozinha a cada push na `main`). Preferência do usuário: **editar → validar com build → publicar**.
 
+Passo a passo para CADA alteração:
+
+1. **Editar** os arquivos em `sispug/src/...` conforme o pedido.
+2. **Validar** com um build de teste (NÃO use `npm run build` direto: o mount não deixa apagar `dist/.DS_Store` e o build falha na limpeza). Rode para uma pasta temporária:
+   ```bash
+   cd <sandbox>/SisPug/sispug
+   npx vite build --outDir /tmp/sispug-build-check --emptyOutDir
+   ```
+   Se aparecer `✓ built`, o código está válido.
+3. **Publicar** com o script pronto (lida sozinho com os locks do git):
+   ```bash
+   cd <sandbox>/SisPug
+   ./publicar.sh "mensagem do commit em português (prefixo: feat/fix/refactor/style/docs)"
+   ```
+
+### ⚠️ Limitação do ambiente: locks do git
+Este mount **não permite apagar** arquivos (`rm` dá "Operation not permitted"), mas **permite renomear/mover**. O git cria `.git/*.lock` a cada operação e não consegue removê-los, deixando locks órfãos que travam a próxima operação. Solução (já embutida no `publicar.sh`): mover os locks para fora antes de cada comando git —
 ```bash
-cd <pasta-do-projeto>/sispug
-git add <arquivos>
-git commit -m "descrição"
-git push
+find .git -name '*.lock' | while read -r f; do mv "$f" ../_arquivo-antigo/gitlock-$(date +%s%N); done
 ```
 
-> **Atenção ao path do sandbox:** a pasta do usuário em `/Users/rafaelpugliesi/Claude/Projects/SisPug/` é montada no sandbox Linux em `/sessions/<id-da-sessão>/mnt/SisPug/`. Use o path do sandbox nos comandos bash.
+### Credencial do GitHub
+O remote usa HTTPS com token. Se um push falhar por autenticação, o token precisa ser reconfigurado:
+```bash
+git remote set-url origin https://<TOKEN>@github.com/2bavexems/sispug.git
+```
+Nunca commitar o token. O `.git/config` é local (não vai para o GitHub).
+
+> **Path do sandbox:** a pasta `/Users/rafaelpugliesi/Claude/Projects/SisPug/` é montada no sandbox Linux em `/sessions/<id-da-sessão>/mnt/SisPug/`. Use o path do sandbox nos comandos bash.
 
 ---
 
