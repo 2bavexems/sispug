@@ -824,6 +824,23 @@ select.plnj-input-select option{background:#12294c;color:var(--texto)}
 .ems-plnj-prazo.crit{color:#f29a93}
 .ems-plnj-prazo.venc{color:#fff;font-weight:700}
 
+/* ── Visão Geral (Cmt EMS) — compacta, mesma tipografia do resumo de planejamento ── */
+.ems-vg{padding:14px 18px}
+.ems-vg-cab{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.ems-vg-filtros button{padding:5px 11px;font-size:11px;border-radius:8px}
+.ems-vg-tabela{min-width:1240px}
+.ems-vg-tabela th{padding:6px 8px;font-size:9.5px;letter-spacing:1.2px;color:var(--rotulo);background:#102a4c;border-bottom:1px solid var(--borda-clara)}
+.ems-vg-tabela td{padding:5px 8px;font-size:12.5px;border-bottom:1px solid var(--borda)}
+.ems-vg-tabela .grupo-cab th{padding:6px 8px 2px;font-size:9.5px;letter-spacing:1px;color:#7db5e8;background:#0e2647}
+.ems-vg-tabela .anv{font-size:13px;font-weight:800}
+.ems-vg-tabela tbody tr:hover{background:rgba(125,181,232,0.06)}
+.ems-vg-tabela .chip{font-size:12px;padding:3px 8px;border-radius:6px}
+.ems-vg-tabela .selo-sit{font-size:8.5px;padding:3px 9px;border-width:1.5px;box-shadow:none}
+.ems-vg-tabela .col-status{min-width:170px}
+.ems-vg-tabela .nome-manut{min-width:120px}
+.ems-vg-tabela .obs{min-width:160px}
+.ems-vg .legenda{margin-top:10px;font-size:11px}
+
 /* ── Gerente TASA ── */
 .tasa-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.25fr);gap:20px;align-items:start;padding:4px 0}
 .tasa-split .plnj-secao-card{min-width:0}

@@ -29,20 +29,17 @@ export function VisaoEMS({ fleet, abrir }) {
 
   return (
     <>
-      <div className="ems-cab">
-        <div>
-          <h2 className="gestao-titulo">Visão Geral</h2>
+      <div className="cartao card-azul ems-vg">
+        <div className="ems-vg-cab">
+          <h3 className="ems-plnj-titulo">Visão Geral</h3>
+          <div className="pilula-grupo ems-vg-filtros">
+            {filtros.map((f) => (
+              <button key={f} className={f === filtro ? "ativa" : ""} onClick={() => setFiltro(f)}>{f}</button>
+            ))}
+          </div>
         </div>
-        <div className="pilula-grupo">
-          {filtros.map((f) => (
-            <button key={f} className={f === filtro ? "ativa" : ""} onClick={() => setFiltro(f)}>{f}</button>
-          ))}
-        </div>
-      </div>
-
-      <div className="cartao card-azul">
         <div className="rolagem">
-          <table className="tabela tecnica">
+          <table className="tabela tecnica ems-vg-tabela">
             <thead>
               <tr className="grupo-cab">
                 <th colSpan="4" className="divisor-dir">Identificação</th>
