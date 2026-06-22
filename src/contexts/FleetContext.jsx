@@ -9,7 +9,7 @@
 // ----------------------------------------------------------------------------
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { carregarFrota, salvarFrota, subscribeToFrota, supabase, FROTA_VAZIA } from "../lib/localStore";
+import { carregarFrota, salvarFrota, subscribeToFrota, supabase, FROTA_VAZIA, frotaTemConteudo } from "../lib/localStore";
 
 const FleetCtx = createContext(null);
 export const useFleet = () => useContext(FleetCtx);
@@ -113,11 +113,20 @@ export function FleetProvider({ children }) {
         const frotaMigrada = { ...f, aeronaves: aeronavesMigradas };
         setFleet(frotaMigrada);
       } catch (e) {
-        console.error("[SisPug] Erro na migração dos dados — iniciando com frota vazia:", e);
-        toast.error("Erro ao carregar dados salvos. Iniciando com frota vazia.");
-        setFleet(structuredClone(FROTA_VAZIA));
+        // Se a migração falhar, usamos os dados crus carregados (que TÊM
+        // conteúdo) — nunca rebaixamos para uma frota vazia, para não arriscar
+        // sobrescrever a nuvem com vazio na próxima gravação.
+        console.error("[SisPug] Erro na migração dos dados — usando dados crus:", e);
+        toast.error("Aviso: dados carregados sem migração completa.");
+        setFleet(f);
       }
       carregado.current = true;
+    }).catch((e) => {
+      // FALHA REAL de carga (rede/permissão). Não marcamos carregado.current,
+      // então as gravações ficam BLOQUEADAS e nada é sobrescrito na nuvem.
+      // A tela permanece em "carregando" e o usuário deve recarregar a página.
+      console.error("[SisPug] Falha ao carregar a frota — gravações bloqueadas:", e);
+      toast.error("Não foi possível carregar os dados. Recarregue a página. (Edições bloqueadas para proteger a nuvem.)");
     });
   }, []);
 
@@ -132,7 +141,16 @@ export function FleetProvider({ children }) {
       // Se este payload é o eco de uma gravação nossa (mesmo uma antiga/atrasada),
       // ignora — não sobrescreve o estado local com dados que nós já enviamos.
       if (enviadosRef.current.has(recebido)) return;
-      setFleet(novaFrota);
+      setFleet((atual) => {
+        // Trava anti-apagamento: nunca aceitamos um payload vazio/sem conteúdo
+        // por cima de um estado local que TEM dados. Foi um payload assim
+        // (eco antigo/bugado) que zerou o planejamento. Mantém o estado atual.
+        if (!frotaTemConteudo(novaFrota) && frotaTemConteudo(atual)) {
+          console.warn("[SisPug] Real-time vazio ignorado — estado local preservado.");
+          return atual;
+        }
+        return novaFrota;
+      });
     });
     return () => supabase.removeChannel(canal);
   }, []);
@@ -271,11 +289,14 @@ export function FleetProvider({ children }) {
 
   // Pessoal (colunas: especialistas, auxiliares, motoristas)
   const addPessoalTasa = (col) =>
-    patchTasa((t) => ({ ...t, pessoal: { ...t.pessoal, [col]: [...t.pessoal[col], { id: uid(), nome: "" }] } }));
-  const updatePessoalTasa = (col, id, value) =>
     patchTasa((t) => ({
       ...t,
-      pessoal: { ...t.pessoal, [col]: t.pessoal[col].map((p) => (p.id === id ? { ...p, nome: value } : p)) },
+      pessoal: { ...t.pessoal, [col]: [...t.pessoal[col], { id: uid(), nome: "", situacao: "Disponível", obs: "" }] },
+    }));
+  const updatePessoalTasa = (col, id, field, value) =>
+    patchTasa((t) => ({
+      ...t,
+      pessoal: { ...t.pessoal, [col]: t.pessoal[col].map((p) => (p.id === id ? { ...p, [field]: value } : p)) },
     }));
   const deletePessoalTasa = (col, id) =>
     patchTasa((t) => ({ ...t, pessoal: { ...t.pessoal, [col]: t.pessoal[col].filter((p) => p.id !== id) } }));

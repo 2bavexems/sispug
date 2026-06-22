@@ -85,35 +85,67 @@ export function GerenteTasa() {
 
       {abaAtiva === "pessoalmaterial" && (
         <div className="tasa-split">
-          {/* PESSOAL TASA DISPONÍVEL */}
+          {/* PESSOAL TASA */}
           <div className="plnj-secao-card">
             <div className="plnj-secao-header">
-              <h3 className="plnj-secao-titulo">Pessoal TASA Disponível</h3>
+              <h3 className="plnj-secao-titulo">Pessoal TASA</h3>
             </div>
             <div className="tasa-pessoal-cols">
               {[
                 { key: "especialistas", titulo: "Especialistas" },
                 { key: "auxiliares", titulo: "Auxiliares" },
-                { key: "motoristas", titulo: "Motoristas MOPP" },
+                { key: "motoristas", titulo: "Mot MOPP" },
               ].map((col) => (
                 <div key={col.key} className="tasa-pessoal-col">
-                  <div className="tasa-pessoal-col-cab">{col.titulo}</div>
-                  <div className="tasa-pessoal-lista">
-                    {pessoal[col.key].length === 0 && (
-                      <div className="tasa-vazio-mini">—</div>
-                    )}
-                    {pessoal[col.key].map((p) => (
-                      <div key={p.id} className="tasa-pessoal-linha">
-                        <input
-                          type="text"
-                          className="plnj-input"
-                          value={p.nome}
-                          onChange={(e) => updatePessoalTasa(col.key, p.id, e.target.value)}
-                          placeholder="Nome"
-                        />
-                        <button className="plnj-btn-del" onClick={() => deletePessoalTasa(col.key, p.id)}>✕</button>
-                      </div>
-                    ))}
+                  <div className="plnj-tabela-container">
+                    <table className="plnj-tabela-elegante tasa-pessoal-tabela">
+                      <thead>
+                        <tr>
+                          <th>{col.titulo}</th>
+                          <th>Situação</th>
+                          <th>Obs</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pessoal[col.key].length === 0 && (
+                          <tr><td colSpan={4} className="tasa-vazio-mini-cell">—</td></tr>
+                        )}
+                        {pessoal[col.key].map((p) => (
+                          <tr key={p.id}>
+                            <td>
+                              <input
+                                type="text"
+                                className="plnj-input"
+                                value={p.nome}
+                                onChange={(e) => updatePessoalTasa(col.key, p.id, "nome", e.target.value)}
+                                placeholder="Nome"
+                              />
+                            </td>
+                            <td>
+                              <select
+                                className={`plnj-input-select ${(p.situacao || "Disponível") === "Disponível" ? "ok" : "nok"}`}
+                                value={p.situacao || "Disponível"}
+                                onChange={(e) => updatePessoalTasa(col.key, p.id, "situacao", e.target.value)}
+                              >
+                                <option>Disponível</option>
+                                <option>Indisponível</option>
+                              </select>
+                            </td>
+                            <td>
+                              <input
+                                type="text"
+                                className="plnj-input"
+                                value={p.obs || ""}
+                                onChange={(e) => updatePessoalTasa(col.key, p.id, "obs", e.target.value)}
+                                placeholder="—"
+                              />
+                            </td>
+                            <td><button className="plnj-btn-del" onClick={() => deletePessoalTasa(col.key, p.id)}>✕</button></td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                   <button className="btn fantasma tasa-add-col" onClick={() => addPessoalTasa(col.key)}>+ Adicionar</button>
                 </div>
@@ -135,10 +167,10 @@ export function GerenteTasa() {
                   <thead>
                     <tr>
                       <th>Material</th>
-                      <th>Total</th>
-                      <th>Disponível</th>
-                      <th>Indisponível</th>
-                      <th>Observações</th>
+                      <th className="tasa-col-num">Total</th>
+                      <th className="tasa-col-num">Disponível</th>
+                      <th className="tasa-col-num">Indisponível</th>
+                      <th className="tasa-col-obs">Observações</th>
                       <th></th>
                     </tr>
                   </thead>
