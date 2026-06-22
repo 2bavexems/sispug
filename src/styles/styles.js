@@ -845,18 +845,36 @@ select.plnj-input-select option{background:#12294c;color:var(--texto)}
 .tasa-split{display:flex;flex-direction:column;gap:20px;padding:4px 0}
 .tasa-split .plnj-secao-card{min-width:0}
 
+/* Fontes compactas — tabelas de Pessoal TASA e Material TASA */
+.tasa-pessoal-tabela,
+.tasa-material-tabela{font-size:11.5px}
+.tasa-pessoal-tabela th,
+.tasa-material-tabela th{font-size:9px;padding:8px 8px}
+.tasa-pessoal-tabela td,
+.tasa-material-tabela td{padding:5px 7px}
+.tasa-pessoal-tabela .plnj-input,
+.tasa-pessoal-tabela .plnj-input-select,
+.tasa-material-tabela .plnj-input,
+.tasa-material-tabela .plnj-input-select{
+  font-size:11px;
+  padding:5px 6px;
+  min-width:0;
+}
+.tasa-pessoal-tabela td:nth-child(2) .plnj-input-select{font-size:10px;padding:4px 2px;text-align:center}
+
 /* Pessoal TASA — 3 mini-tabelas (Especialistas/Auxiliares/Mot MOPP) lado a lado */
 .tasa-pessoal-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:14px 16px}
 .tasa-pessoal-col{display:flex;flex-direction:column;gap:10px;min-width:0}
-.tasa-pessoal-tabela th:nth-child(2),.tasa-pessoal-tabela td:nth-child(2){width:96px}
-.tasa-pessoal-tabela th:last-child,.tasa-pessoal-tabela td:last-child{width:32px}
+.tasa-pessoal-tabela th:nth-child(2),.tasa-pessoal-tabela td:nth-child(2){width:112px}
+.tasa-pessoal-tabela th:last-child,.tasa-pessoal-tabela td:last-child{width:26px}
 .tasa-vazio-mini-cell{text-align:center;color:var(--rotulo);font-style:italic;font-size:12px;padding:14px 0}
 .tasa-add-col{width:100%;justify-content:center;font-size:12px;padding:7px}
 .tasa-num{text-align:center;font-family:var(--num);font-variant-numeric:tabular-nums}
 
-/* Material TASA — coluna Observações mais larga */
+/* Material TASA — Material mais estreita; Observações ganha o espaço liberado */
+.tasa-col-material{width:130px}
 .tasa-col-num{width:84px}
-.tasa-col-obs{width:38%}
+.tasa-col-obs{width:48%}
 
 @media (max-width:640px){
   .tasa-pessoal-cols{grid-template-columns:1fr}

@@ -163,10 +163,10 @@ export function GerenteTasa() {
               <div className="plnj-vazio-msg">Nenhum material cadastrado</div>
             ) : (
               <div className="plnj-tabela-container">
-                <table className="plnj-tabela-elegante">
+                <table className="plnj-tabela-elegante tasa-material-tabela">
                   <thead>
                     <tr>
-                      <th>Material</th>
+                      <th className="tasa-col-material">Material</th>
                       <th className="tasa-col-num">Total</th>
                       <th className="tasa-col-num">Disponível</th>
                       <th className="tasa-col-num">Indisponível</th>
