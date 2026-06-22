@@ -7,7 +7,7 @@ const PESSOAL_VAZIO = { especialistas: [], auxiliares: [], motoristas: [] };
 export function GerenteTasa() {
   const [abaAtiva, setAbaAtiva] = useState("missoes");
   const {
-    fleet,
+    fleet, modoEdicao,
     addMissaoTasa, updateMissaoTasa, deleteMissaoTasa,
     addPessoalTasa, updatePessoalTasa, deletePessoalTasa,
     addMaterialTasa, updateMaterialTasa, deleteMaterialTasa,
@@ -42,7 +42,7 @@ export function GerenteTasa() {
           <div className="plnj-secao-card">
             <div className="plnj-secao-header">
               <h3 className="plnj-secao-titulo">Planejamento das Missões</h3>
-              <button className="btn primario" onClick={addMissaoTasa}>+ Adicionar</button>
+              {modoEdicao && <button className="btn primario" onClick={addMissaoTasa}>+ Adicionar</button>}
             </div>
 
             {missoes.length === 0 ? (
@@ -62,7 +62,7 @@ export function GerenteTasa() {
                       <th></th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody {...(!modoEdicao ? { inert: "" } : {})}>
                     {missoes.map((m) => (
                       <tr key={m.id}>
                         <td><select className="plnj-input-select" value={m.semana} onChange={(e) => updateMissaoTasa(m.id, "semana", e.target.value)}><option>S</option><option>S+1</option><option>S+2</option></select></td>
@@ -107,7 +107,7 @@ export function GerenteTasa() {
                           <th></th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody {...(!modoEdicao ? { inert: "" } : {})}>
                         {pessoal[col.key].length === 0 && (
                           <tr><td colSpan={4} className="tasa-vazio-mini-cell">—</td></tr>
                         )}
@@ -147,7 +147,7 @@ export function GerenteTasa() {
                       </tbody>
                     </table>
                   </div>
-                  <button className="btn fantasma tasa-add-col" onClick={() => addPessoalTasa(col.key)}>+ Adicionar</button>
+                  {modoEdicao && <button className="btn fantasma tasa-add-col" onClick={() => addPessoalTasa(col.key)}>+ Adicionar</button>}
                 </div>
               ))}
             </div>
@@ -157,7 +157,7 @@ export function GerenteTasa() {
           <div className="plnj-secao-card">
             <div className="plnj-secao-header">
               <h3 className="plnj-secao-titulo">Material TASA</h3>
-              <button className="btn primario" onClick={addMaterialTasa}>+ Adicionar</button>
+              {modoEdicao && <button className="btn primario" onClick={addMaterialTasa}>+ Adicionar</button>}
             </div>
             {material.length === 0 ? (
               <div className="plnj-vazio-msg">Nenhum material cadastrado</div>
@@ -174,7 +174,7 @@ export function GerenteTasa() {
                       <th></th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody {...(!modoEdicao ? { inert: "" } : {})}>
                     {material.map((m) => (
                       <tr key={m.id}>
                         <td><input type="text" className="plnj-input" value={m.material} onChange={(e) => updateMaterialTasa(m.id, "material", e.target.value)} placeholder="Item" /></td>
