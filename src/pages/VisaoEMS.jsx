@@ -62,7 +62,7 @@ export function VisaoEMS({ fleet, abrir }) {
                 const a = fleet.aeronaves[n];
                 if (!passa(a)) return null;
                 const { horas, dias } = limitesOrdenados(a);
-                const vencAt = diasAte(a.inspecoes.atSem);
+                const vencAt = diasAte(a.inspecoes.atCom);
                 const vencC = diasAte(a.inspecoes.inspC);
                 return (
                   <tr key={n} className={"linha-sit " + classSituacao(a.situacao)} onClick={() => abrir(n)}>
