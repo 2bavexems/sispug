@@ -197,7 +197,9 @@ export function limitesOrdenados(anv) {
   varrer("celula", anv.celula);
   varrer("motores", anv.motores);
   varrer("recheques", anv.recheques);
-  const dAT = diasAte(anv.inspecoes.atSem);
+  // Apenas A/T COM extensão entra no ranking (Cmdo Btl / Cmt EMS).
+  // A A/T sem extensão existe só para controle no SisDeLu.
+  const dAT = diasAte(anv.inspecoes.atCom);
   if (dAT !== null) dias.push({ valor: dAT, nome: "Insp A/T", tipo: "at" });
   const dC = diasAte(anv.inspecoes.inspC);
   if (dC !== null) dias.push({ valor: dC, nome: "Inspeção C", tipo: "inspC" });
@@ -303,8 +305,8 @@ export function pesquisaManutencoes(anv) {
       ordem: dias ?? Infinity,
     });
   };
-  addInsp("Insp A/T s/ext", insp.atSem, "at");
-  addInsp("Insp A/T c/ext", insp.atCom, "at");
+  // Só a A/T COM extensão é relevante aqui; a s/ext serve apenas de controle.
+  addInsp("Insp A/T", insp.atCom, "at");
   addInsp("Inspeção C", insp.inspC, "inspC");
 
   const porOrdem = (a, b) => a.ordem - b.ordem;
