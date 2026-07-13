@@ -163,6 +163,13 @@ export function potencial(row, limite, anv, secao) {
     if (isNaN(lim)) return null;
     return Math.round((lim - tsnReferencia(anv, secao, row)) * 10) / 10;
   }
+  if (row.tipo === "Pousos") {
+    // Potencial em pousos = limite − pousos atuais da aeronave (só Anv Cougar)
+    const lim = parseFloat(limite);
+    if (isNaN(lim)) return null;
+    const atuais = parseFloat(anv.pousos) || 0;
+    return Math.round(lim - atuais);
+  }
   return diasAte(limite);
 }
 
@@ -170,12 +177,14 @@ export function potencial(row, limite, anv, secao) {
 // O parâmetro `tipo` define os limiares:
 //   - "at"    → Grandes Inspeções A/T:  < 30 vermelho, 30–90 amarelo, > 90 verde
 //   - "inspC" → Inspeção C:             < 100 vermelho, 100–365 amarelo, > 365 verde
+//   - "pousos"→ Recheque por Pousos (só Anv Cougar): < 30 vermelho, < 50 amarelo, ≥ 50 verde
 //   - padrão  → Limite de Vida, Célula, Motor, Recheque (horas ou dias):
 //               0–10 vermelho, 10–20 amarelo, > 20 verde
 // Em qualquer tipo, valor < 0 = vencido (vermelho forte).
 export function nivel(valor, unidade, tipo) {
   if (valor === null || valor === undefined || isNaN(valor)) return "na";
   if (valor < 0) return "vencido";
+  if (tipo === "pousos") return valor < 30 ? "critico" : valor < 50 ? "alerta" : "normal";
   if (tipo === "at") return valor < 30 ? "critico" : valor <= 90 ? "alerta" : "normal";
   if (tipo === "inspC") return valor < 100 ? "critico" : valor <= 365 ? "alerta" : "normal";
   return valor <= 10 ? "critico" : valor <= 20 ? "alerta" : "normal";
@@ -186,6 +195,8 @@ export function limitesOrdenados(anv) {
   const dias = [];
   const varrer = (secao, rows) =>
     rows.forEach((r) => {
+      // Recheques por Pousos (Anv Cougar) NÃO entram no ranking de Cmt Blt / Cmt EMS
+      if (r.tipo === "Pousos") return;
       // Sempre considera limiteCom (com extensão)
       const p = potencial(r, r.limiteCom, anv, secao);
       if (p === null) return;
@@ -257,6 +268,8 @@ export function pesquisaManutencoes(anv) {
   if (!anv) return { horarias, calendaricas };
 
   const addRow = (secao, r) => {
+    // Recheques por Pousos (Anv Cougar) ficam fora da Pesquisa Mnt por enquanto
+    if (r.tipo === "Pousos") return;
     const potSem = potencial(r, r.limiteSem, anv, secao);
     const potCom = potencial(r, r.limiteCom, anv, secao);
     // ordem de vencimento: prefere c/ ext; se ausente, usa s/ ext; senão, fim

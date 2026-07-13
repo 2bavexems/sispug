@@ -4,7 +4,7 @@ import { useFleet } from "../contexts/FleetContext";
 
 export function PlnjMnt() {
   const {
-    fleet, confirmarPlnj,
+    fleet, confirmarPlnj, modoEdicao,
     addManutencaoPlnj, updateManutencaoPlnj, deleteManutencaoPlnj,
   } = useFleet();
 
@@ -38,7 +38,7 @@ export function PlnjMnt() {
                   <strong>Planejamento pendente.</strong> Atualize planejamento das próximas 3 semanas (S, S+1, S+2).
                 </span>
               </div>
-              <button className="btn primario" onClick={() => confirmarPlnj(modelo)}>Planejado</button>
+              {modoEdicao && <button className="btn primario" onClick={() => confirmarPlnj(modelo)}>Planejado</button>}
             </div>
           )}
 
@@ -46,9 +46,11 @@ export function PlnjMnt() {
           <div className={`plnj-secao-card ${pendente ? "plnj-frota-alerta" : ""}`}>
             <div className="plnj-secao-header">
               <h3 className="plnj-secao-titulo">Planejamento das Manutenções</h3>
-              <button className="btn primario" onClick={() => addManutencao(modelo)}>
-                + Adicionar
-              </button>
+              {modoEdicao && (
+                <button className="btn primario" onClick={() => addManutencao(modelo)}>
+                  + Adicionar
+                </button>
+              )}
             </div>
 
             {manutencoesDe(modelo).length === 0 ? (
@@ -68,7 +70,7 @@ export function PlnjMnt() {
                       <th></th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody {...(!modoEdicao ? { inert: "" } : {})}>
                     {manutencoesDe(modelo).map((m) => (
                       <tr key={m.id}>
                         <td><select className="plnj-input-select" value={m.semana} onChange={(e) => updateManutencao(modelo, m.id, "semana", e.target.value)}><option>S</option><option>S+1</option><option>S+2</option><option>Outros</option></select></td>

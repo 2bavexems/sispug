@@ -130,6 +130,9 @@ function TabelaManutencao({ titulo, secao, numeral, comAplicacao }) {
   const [modalExcluir, setModalExcluir] = useState({ aberto: false, row: null });
   const rows = anv[secao];
 
+  // "Pousos" só existe em Recheques/Diretivas/Outros das Anv Cougar (numeral 4xxx)
+  const mostrarPousos = secao === "recheques" && String(numeral).startsWith("4");
+
   const setRow = (id, patch) => updateManutencao(numeral, secao, id, patch);
   const trocarTipo = (r, tipo) => {
     if (estaTravado(r.id)) return;
@@ -195,7 +198,9 @@ function TabelaManutencao({ titulo, secao, numeral, comAplicacao }) {
           </thead>
           <tbody {...(!modoEdicao ? { inert: "" } : {})}>
             {visiveis.map((r) => {
-              const u = r.tipo === "Horária" ? "h" : "d";
+              const u = r.tipo === "Horária" ? "h" : r.tipo === "Pousos" ? "p" : "d";
+              const tipoNivel = r.tipo === "Pousos" ? "pousos" : undefined;
+              const unidLabel = r.tipo === "Horária" ? "h" : r.tipo === "Pousos" ? "pousos" : "dias";
               const pS = potencial(r, r.limiteSem, anv, secao);
               const pC = potencial(r, r.limiteCom, anv, secao);
               // Função local para checar vazio
@@ -207,18 +212,22 @@ function TabelaManutencao({ titulo, secao, numeral, comAplicacao }) {
                   {comAplicacao && (
                     <td><span className={"cel-wrapper" + (estaVazio(r.aplicacao) ? " vazio" : "")}><select className="cel" disabled={estaTravado(r.id)} value={r.aplicacao} onChange={(e) => setRow(r.id, { aplicacao: e.target.value })}>{APLICACOES.map((a) => <option key={a}>{a}</option>)}</select></span></td>
                   )}
-                  <td><select className="cel" disabled={estaTravado(r.id)} value={r.tipo} onChange={(e) => trocarTipo(r, e.target.value)}><option>Calendárica</option><option>Horária</option></select></td>
+                  <td><select className="cel" disabled={estaTravado(r.id)} value={r.tipo} onChange={(e) => trocarTipo(r, e.target.value)}><option>Calendárica</option><option>Horária</option>{mostrarPousos && <option>Pousos</option>}</select></td>
                   <td><span className={"cel-wrapper" + (estaVazio(r.limiteSem) ? " vazio" : "")}>{r.tipo === "Horária"
                     ? <input type="number" step="0.1" className="cel mono" disabled={estaTravado(r.id)} value={r.limiteSem} onChange={(e) => setRow(r.id, { limiteSem: e.target.value })} placeholder="horas" />
+                    : r.tipo === "Pousos"
+                    ? <input type="number" step="1" className="cel mono" disabled={estaTravado(r.id)} value={r.limiteSem} onChange={(e) => setRow(r.id, { limiteSem: e.target.value })} placeholder="pousos" />
                     : <input type="date" className="cel mono" disabled={estaTravado(r.id)} value={r.limiteSem} onChange={(e) => setRow(r.id, { limiteSem: e.target.value })} />}</span></td>
                   <td><span className={"cel-wrapper" + (estaVazio(r.limiteCom) ? " vazio" : "")}>{r.tipo === "Horária"
                     ? <input type="number" step="0.1" className="cel mono" disabled={estaTravado(r.id)} value={r.limiteCom} onChange={(e) => setRow(r.id, { limiteCom: e.target.value })} placeholder="horas" />
+                    : r.tipo === "Pousos"
+                    ? <input type="number" step="1" className="cel mono" disabled={estaTravado(r.id)} value={r.limiteCom} onChange={(e) => setRow(r.id, { limiteCom: e.target.value })} placeholder="pousos" />
                     : <input type="date" className="cel mono" disabled={estaTravado(r.id)} value={r.limiteCom} onChange={(e) => setRow(r.id, { limiteCom: e.target.value })} />}</span></td>
-                  <td className="centro" title={r.tipo === "Calendárica" ? `Vence em ${fmtData(r.limiteSem)}` : "Limite − TSN aplicável"}>
-                    <span className={"chip " + nivel(pS, u)}>{pS === null ? "—" : pS < 0 ? "VENCIDO" : `${pS} ${u === "h" ? "h" : "dias"}`}</span>
+                  <td className="centro" title={r.tipo === "Calendárica" ? `Vence em ${fmtData(r.limiteSem)}` : r.tipo === "Pousos" ? "Limite − Pousos da aeronave" : "Limite − TSN aplicável"}>
+                    <span className={"chip " + nivel(pS, u, tipoNivel)}>{pS === null ? "—" : pS < 0 ? "VENCIDO" : `${pS} ${unidLabel}`}</span>
                   </td>
-                  <td className="centro" title={r.tipo === "Calendárica" ? `Vence em ${fmtData(r.limiteCom)}` : "Limite − TSN aplicável"}>
-                    <span className={"chip " + nivel(pC, u)}>{pC === null ? "—" : pC < 0 ? "VENCIDO" : `${pC} ${u === "h" ? "h" : "dias"}`}</span>
+                  <td className="centro" title={r.tipo === "Calendárica" ? `Vence em ${fmtData(r.limiteCom)}` : r.tipo === "Pousos" ? "Limite − Pousos da aeronave" : "Limite − TSN aplicável"}>
+                    <span className={"chip " + nivel(pC, u, tipoNivel)}>{pC === null ? "—" : pC < 0 ? "VENCIDO" : `${pC} ${unidLabel}`}</span>
                   </td>
                   <td><span className={"cel-wrapper" + (secao === "recheques" && estaVazio(r.obs) ? " vazio" : "")}><input className="cel" disabled={estaTravado(r.id)} value={r.obs} onChange={(e) => setRow(r.id, { obs: e.target.value })} placeholder="—" /></span></td>
                   <td className="acoes-linha">
