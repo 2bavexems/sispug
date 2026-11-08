@@ -1,177 +1,181 @@
 // src/contexts/FleetContext.jsx
 // ----------------------------------------------------------------------------
-// Estado da frota — 100% local e offline.
+// Estado da frota, compartilhado entre todos os usuários via Supabase.
 //
-//  • Ao abrir o app, carrega a frota salva no navegador (IndexedDB).
-//  • Toda alteração atualiza a tela imediatamente e é salva automaticamente
-//    no navegador pouco tempo depois (debounce de 400 ms).
-//  • Não depende de internet, servidor ou login.
+// COMO A SINCRONIZAÇÃO FUNCIONA (versão segura — nov/2026)
+//  • "base"  = última versão conhecida do servidor (+ o que nós já enviamos).
+//  • "fleet" = o que está na tela (base + edições locais ainda não enviadas).
+//  • Ao editar, depois de 400 ms o app calcula a DIFERENÇA entre fleet e base e
+//    envia só os campos alterados (função SQL frota_aplicar_ops). O servidor
+//    aplica de forma atômica — um gerente NUNCA sobrescreve o lançamento de
+//    outro (antes a frota inteira era regravada e isso fazia o TSN "voltar").
+//  • Quando chega uma gravação de outra pessoa (tempo real), as edições locais
+//    pendentes são reaplicadas por cima dela (nada digitado se perde) e o app
+//    NÃO regrava o que recebeu.
+//  • Cada gravação tem um número de versão. A cada 20 s, ao voltar para a aba,
+//    ao reconectar ou ao voltar a internet, o app confere se perdeu alguma
+//    versão e, se perdeu, recarrega tudo do servidor (fim da "aba parada").
+//  • Gravação que falha é avisada em vermelho e repetida automaticamente.
 // ----------------------------------------------------------------------------
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
-import { carregarFrota, salvarFrota, subscribeToFrota, supabase, FROTA_VAZIA, frotaTemConteudo } from "../lib/localStore";
+import {
+  carregarFrota, enviarOps, lerVersao, subscribeToFrota, supabase,
+} from "../lib/localStore";
+import { criarMotor } from "../lib/motorSync";
 
 const FleetCtx = createContext(null);
 export const useFleet = () => useContext(FleetCtx);
 
 const uid = () => crypto.randomUUID();
 const PIN_EDICAO = "5215";
+const CONFERENCIA_MS = 20000;
 
-// Serialização canônica: ordena as chaves recursivamente e ignora valores
-// `undefined` (igual ao JSON.stringify). É usada SÓ para reconhecer o eco das
-// nossas próprias gravações no real-time.
-//
-// Por que isso importa: a coluna `dados` é jsonb e o Postgres reordena as
-// chaves dos objetos (por tamanho/bytes). Assim, o JSON que volta pelo
-// real-time não é byte-a-byte igual ao que enviamos. A dedup antiga comparava
-// JSON.stringify cru, então um eco atrasado de uma gravação ANTERIOR deixava de
-// ser reconhecido como nosso e era aplicado via setFleet — revertendo edições
-// recém-feitas. Isso só apareceu depois da chave "tasa" (a mais curta) entrar
-// no topo, mudando a ordem do jsonb. Comparando de forma canônica, a ordem das
-// chaves deixa de importar.
-function stableStringify(value) {
-  if (value === undefined || typeof value === "function") return undefined;
-  if (value === null) return "null";
-  if (Array.isArray(value)) {
-    return "[" + value.map((v) => stableStringify(v) ?? "null").join(",") + "]";
-  }
-  if (typeof value === "object") {
-    const partes = [];
-    for (const k of Object.keys(value).sort()) {
-      const sv = stableStringify(value[k]);
-      if (sv !== undefined) partes.push(JSON.stringify(k) + ":" + sv);
+// Identificador deste navegador (aparece no histórico do banco).
+function idCliente() {
+  try {
+    let id = localStorage.getItem("sispug-cliente");
+    if (!id) {
+      id = "nav-" + crypto.randomUUID().slice(0, 8);
+      localStorage.setItem("sispug-cliente", id);
     }
-    return "{" + partes.join(",") + "}";
+    return id;
+  } catch {
+    return "nav-" + crypto.randomUUID().slice(0, 8);
   }
-  return JSON.stringify(value);
+}
+
+// Migração de dados antigos — garante propriedades obrigatórias nas aeronaves.
+function migrar(f) {
+  const aeronavesMigradas = {};
+  Object.entries(f.aeronaves || {}).forEach(([numeral, anv]) => {
+    aeronavesMigradas[numeral] = {
+      tsnCelulaAtualizadoEm: undefined,
+      tsnGtm1AtualizadoEm: undefined,
+      tsnGtm2AtualizadoEm: undefined,
+      confirmacaoMntEm: undefined,
+      travados: {},
+      ...anv,
+    };
+    // Formato antigo (1 timestamp "tsnAtualizadoEm" para os 3 campos TSN)
+    const m = aeronavesMigradas[numeral];
+    if (anv.tsnAtualizadoEm && !m.tsnCelulaAtualizadoEm && !m.tsnGtm1AtualizadoEm && !m.tsnGtm2AtualizadoEm) {
+      m.tsnCelulaAtualizadoEm = anv.tsnAtualizadoEm;
+      m.tsnGtm1AtualizadoEm = anv.tsnAtualizadoEm;
+      m.tsnGtm2AtualizadoEm = anv.tsnAtualizadoEm;
+    }
+  });
+  return { ...f, aeronaves: aeronavesMigradas };
 }
 
 export function FleetProvider({ children }) {
-  const [fleet, setFleet] = useState(null);
+  const [fleet, setFleetState] = useState(null);
   const [salvoEm, setSalvoEm] = useState(null);
+  const [statusGravacao, setStatusGravacao] = useState("ok"); // "ok" | "salvando" | "erro"
+  const [conectado, setConectado] = useState(true);
   const [modoEdicao, setModoEdicao] = useState(false);
   const desbloquear = (pin) => { if (pin === PIN_EDICAO) { setModoEdicao(true); return true; } return false; };
   const bloquear = () => setModoEdicao(false);
 
-  const saveTimer = useRef(null);
-  const carregado = useRef(false);
-  // Conjunto de snapshots que NÓS gravamos — evita o eco da própria gravação no
-  // real-time. Precisa ser um Set (e não um único valor): em edições rápidas
-  // podem existir várias gravações em voo ao mesmo tempo, e o eco de uma
-  // gravação ANTIGA pode chegar pela rede DEPOIS de uma mais nova já ter sido
-  // enviada. Com um único snapshot, esse eco atrasado não batia com o último
-  // valor salvo e era aplicado via setFleet, revertendo o que o usuário acabara
-  // de digitar (bug do TSN: "os números voltam sozinhos / não digita"). Com um
-  // Set, qualquer eco de uma gravação nossa é reconhecido e ignorado.
-  const enviadosRef = useRef(new Set());
+  // Motor de sincronização (src/lib/motorSync.js) — criado uma única vez.
+  const motorRef = useRef(null);
+  if (!motorRef.current) {
+    motorRef.current = criarMotor({
+      api: { carregar: carregarFrota, enviarOps },
+      cliente: idCliente(),
+      aoMudarTela: setFleetState,
+      aoStatus: (s) => {
+        setStatusGravacao(s.gravacao);
+        if (s.salvoEm) setSalvoEm(s.salvoEm);
+        if (s.gravacao === "erro") {
+          toast.error("Falha ao salvar. Tentando novamente — não feche a página.", { id: "erro-salvar", duration: 8000 });
+        } else if (s.recuperado) {
+          toast.success("Conexão restabelecida — alterações salvas.", { id: "erro-salvar" });
+        }
+      },
+    });
+  }
+  const motor = motorRef.current;
+
+  // Todas as mutações abaixo usam setFleet → passam pelo motor (que agenda o envio).
+  const setFleet = (v) => motor.mutar(v);
 
   // --------------------------------------------------------------------------
-  // CARGA inicial — lê a frota salva no navegador (ou começa vazia)
-  // Com migração de dados para garantir propriedades obrigatórias
-  //
-  // IMPORTANTE: em React.StrictMode (modo dev), o React monta os efeitos duas
-  // vezes (mount → unmount → mount) só para detectar side-effects mal limpos.
-  // Sem proteção, este efeito roda 2x: a 2ª chamada de carregarFrota() lê o
-  // IndexedDB de novo e, ao terminar, faz setFleet(frotaMigrada) — sobrescrevendo
-  // qualquer edição já feita em memória (ex.: tsnAtualizadoEm recém-gravado)
-  // com o snapshot ANTIGO lido do banco antes da edição. Isso fazia o aviso
-  // "Atualizar TSN" reaparecer/desaparecer de forma aparentemente aleatória,
-  // dependendo de qual campo o usuário editava primeiro após o carregamento.
-  //
-  // A guarda abaixo é SÍNCRONA (setada antes do await), então a 2ª execução
-  // do efeito nem chega a chamar setFleet.
+  // CARGA inicial (guarda síncrona contra a 2ª montagem do StrictMode)
   // --------------------------------------------------------------------------
   const cargaIniciada = useRef(false);
   useEffect(() => {
-    if (cargaIniciada.current) return; // ignora a 2ª montagem do StrictMode
+    if (cargaIniciada.current) return;
     cargaIniciada.current = true;
-
-    carregarFrota().then((f) => {
-      // Migração: garante que todas as aeronaves têm propriedades obrigatórias
+    carregarFrota().then((r) => {
+      let local;
       try {
-        const aeronavesMigradas = {};
-        Object.entries(f.aeronaves || {}).forEach(([numeral, anv]) => {
-          aeronavesMigradas[numeral] = {
-            tsnCelulaAtualizadoEm: undefined, // Mantém o valor existente, nunca reseta
-            tsnGtm1AtualizadoEm: undefined,
-            tsnGtm2AtualizadoEm: undefined,
-            confirmacaoMntEm: undefined,
-            travados: {},
-            ...anv, // Spread das propriedades salvas (sobrescreve os undefined)
-          };
-
-          // Migração do formato antigo (1 timestamp único "tsnAtualizadoEm"
-          // para os 3 campos TSN) — usa o valor antigo como ponto de partida
-          // para os 3 campos novos, se ainda não tiverem sido definidos.
-          const m = aeronavesMigradas[numeral];
-          if (anv.tsnAtualizadoEm && !m.tsnCelulaAtualizadoEm && !m.tsnGtm1AtualizadoEm && !m.tsnGtm2AtualizadoEm) {
-            m.tsnCelulaAtualizadoEm = anv.tsnAtualizadoEm;
-            m.tsnGtm1AtualizadoEm = anv.tsnAtualizadoEm;
-            m.tsnGtm2AtualizadoEm = anv.tsnAtualizadoEm;
-          }
-        });
-        const frotaMigrada = { ...f, aeronaves: aeronavesMigradas };
-        setFleet(frotaMigrada);
+        local = migrar(r.dados);
       } catch (e) {
-        // Se a migração falhar, usamos os dados crus carregados (que TÊM
-        // conteúdo) — nunca rebaixamos para uma frota vazia, para não arriscar
-        // sobrescrever a nuvem com vazio na próxima gravação.
         console.error("[SisPug] Erro na migração dos dados — usando dados crus:", e);
         toast.error("Aviso: dados carregados sem migração completa.");
-        setFleet(f);
+        local = r.dados;
       }
-      carregado.current = true;
+      motor.iniciar(r, local);
     }).catch((e) => {
-      // FALHA REAL de carga (rede/permissão). Não marcamos carregado.current,
-      // então as gravações ficam BLOQUEADAS e nada é sobrescrito na nuvem.
-      // A tela permanece em "carregando" e o usuário deve recarregar a página.
+      // Falha real de carga: o motor não é iniciado, então NADA é gravado.
       console.error("[SisPug] Falha ao carregar a frota — gravações bloqueadas:", e);
       toast.error("Não foi possível carregar os dados. Recarregue a página. (Edições bloqueadas para proteger a nuvem.)");
     });
   }, []);
 
   // --------------------------------------------------------------------------
-  // REAL-TIME — sincroniza com outros usuários via Supabase
-  // Quando outro usuário salva, a subscription dispara e atualiza o estado local.
-  // O snapshot `ultimaSalvaRef` evita que a própria gravação cause um loop.
+  // TEMPO REAL + conferências periódicas e ao voltar para a aba
   // --------------------------------------------------------------------------
   useEffect(() => {
-    const canal = subscribeToFrota((novaFrota) => {
-      const recebido = stableStringify(novaFrota);
-      // Se este payload é o eco de uma gravação nossa (mesmo uma antiga/atrasada),
-      // ignora — não sobrescreve o estado local com dados que nós já enviamos.
-      if (enviadosRef.current.has(recebido)) return;
-      setFleet((atual) => {
-        // Trava anti-apagamento: nunca aceitamos um payload vazio/sem conteúdo
-        // por cima de um estado local que TEM dados. Foi um payload assim
-        // (eco antigo/bugado) que zerou o planejamento. Mantém o estado atual.
-        if (!frotaTemConteudo(novaFrota) && frotaTemConteudo(atual)) {
-          console.warn("[SisPug] Real-time vazio ignorado — estado local preservado.");
-          return atual;
-        }
-        return novaFrota;
-      });
+    let jaConectou = false;
+    const canal = subscribeToFrota(motor.receber, (status) => {
+      if (status === "SUBSCRIBED") {
+        setConectado(true);
+        if (jaConectou) motor.sincronizar(); // reconectou: busca o que perdeu
+        jaConectou = true;
+      } else if (status === "CLOSED" || status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+        setConectado(false);
+      }
     });
-    return () => supabase.removeChannel(canal);
-  }, []);
 
-  // --------------------------------------------------------------------------
-  // SALVAR — toda vez que a frota muda, salva no Supabase (debounced)
-  // --------------------------------------------------------------------------
-  useEffect(() => {
-    if (!fleet || !carregado.current) return;
-    clearTimeout(saveTimer.current);
-    saveTimer.current = setTimeout(async () => {
-      const snapshot = stableStringify(fleet);
-      enviadosRef.current.add(snapshot); // ANTES do save — evita eco real-time prematuro
-      await salvarFrota(fleet);
-      setSalvoEm(new Date());
-      // Remove o snapshot do conjunto após uma janela folgada para o eco voltar
-      // pela rede. Mantém o Set pequeno sem descartar ecos atrasados cedo demais.
-      setTimeout(() => enviadosRef.current.delete(snapshot), 15000);
-    }, 400);
-    return () => clearTimeout(saveTimer.current);
-  }, [fleet]);
+    // A cada 20 s confere a versão do servidor (consulta leve). Ficou para trás? Recarrega.
+    const conferir = async () => {
+      if (!motor.carregado) return;
+      try {
+        if ((await lerVersao()) > motor.versao) await motor.sincronizar();
+      } catch { /* sem rede: tenta na próxima */ }
+      if (motor.temPendencias()) motor.enviar();
+    };
+    const intervalo = setInterval(conferir, CONFERENCIA_MS);
+
+    const aoMudarVisibilidade = () => {
+      if (document.visibilityState === "hidden") motor.enviar(); // salva já, sem esperar
+      else motor.sincronizar();
+    };
+    const aoFocar = () => motor.sincronizar();
+    const aoVoltarInternet = () => { motor.sincronizar(); motor.enviar(); };
+    const antesDeSair = (e) => {
+      if (motor.temPendencias()) {
+        motor.enviar();
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    document.addEventListener("visibilitychange", aoMudarVisibilidade);
+    window.addEventListener("focus", aoFocar);
+    window.addEventListener("online", aoVoltarInternet);
+    window.addEventListener("beforeunload", antesDeSair);
+
+    return () => {
+      supabase.removeChannel(canal);
+      clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", aoMudarVisibilidade);
+      window.removeEventListener("focus", aoFocar);
+      window.removeEventListener("online", aoVoltarInternet);
+      window.removeEventListener("beforeunload", antesDeSair);
+    };
+  }, []);
 
   // --------------------------------------------------------------------------
   // MUTAÇÕES — sempre atualização local imediata (sem rede)
@@ -373,11 +377,13 @@ export function FleetProvider({ children }) {
   });
 
   const addAeronave = async (numeral, modelo) => {
-    if (fleet.aeronaves[numeral]) {
+    if (motor.tela?.aeronaves?.[numeral]) {
       toast.error("Já existe aeronave com esse numeral.");
       return false;
     }
+    // "...f" preserva planejamento, TASA etc. (antes eram apagados ao criar aeronave)
     setFleet((f) => ({
+      ...f,
       ordem: [...f.ordem, numeral].sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true })),
       aeronaves: { ...f.aeronaves, [numeral]: aeronaveNova(numeral, modelo) },
     }));
@@ -389,7 +395,8 @@ export function FleetProvider({ children }) {
     setFleet((f) => {
       const aeronaves = { ...f.aeronaves };
       delete aeronaves[numeral];
-      return { ordem: f.ordem.filter((n) => n !== numeral), aeronaves };
+      // "...f" preserva planejamento, TASA etc. (antes eram apagados ao remover aeronave)
+      return { ...f, ordem: f.ordem.filter((n) => n !== numeral), aeronaves };
     });
     toast.success(`Aeronave ${numeral} removida`);
     return true;
@@ -415,7 +422,7 @@ export function FleetProvider({ children }) {
 
   return (
     <FleetCtx.Provider value={{
-      fleet, salvoEm, modoEdicao, desbloquear, bloquear,
+      fleet, salvoEm, statusGravacao, conectado, modoEdicao, desbloquear, bloquear,
       updateAeronave, updateInspecoes, toggleTravado, confirmarMnt,
       addManutencao, updateManutencao, duplicateManutencao, deleteManutencao,
       addAnotacao, updateAnotacao, deleteAnotacao,

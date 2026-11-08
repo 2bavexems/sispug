@@ -39,7 +39,10 @@ sispug/
 │   ├── styles/styles.js              # TODO o CSS do projeto (string exportada)
 │   ├── lib/
 │   │   ├── domain.js                 # Lógica de negócio (potencial, notificações, TSN)
-│   │   └── localStore.js             # Cliente Supabase + funções de carga/save/subscribe
+│   │   ├── localStore.js             # Cliente Supabase: carregar, enviarOps (RPC), lerVersao, subscribe
+│   │   ├── sync.js                   # calcularOps (diferença) e aplicarOps — espelho da função SQL
+│   │   ├── motorSync.js              # Motor de sincronização (base × tela, rebase, versões, reenvio)
+│   │   └── conteudo.js               # Trava anti-apagamento (frotaTemConteudo)
 │   ├── contexts/
 │   │   └── FleetContext.jsx          # Estado global da frota (Provider + useFleet hook)
 │   ├── components/
@@ -56,6 +59,10 @@ sispug/
 │       ├── VisaoEMS.jsx              # Aba "Cmt EMS" — tabela detalhada
 │       ├── Gestao.jsx                # Aba "Gerentes de Frota" — lista de aeronaves
 │       └── PainelAeronave.jsx        # Painel individual de cada aeronave (dados, manutenção, anotações)
+├── sql/01_sincronizacao_segura.sql   # Função de gravação, histórico, bloqueio do UPDATE direto
+└── scripts/
+    ├── teste-sync.mjs                # node scripts/teste-sync.mjs — simula vários gerentes simultâneos
+    └── teste-sql.mjs                 # testa a função SQL num Postgres embutido (ver cabeçalho)
 ```
 
 ---
@@ -64,7 +71,9 @@ sispug/
 
 - **Projeto:** `sispug` | ID: `dqkyjcfxdvsfqtfnxbzl` | Região: South America (São Paulo)
 - **URL:** `https://dqkyjcfxdvsfqtfnxbzl.supabase.co`
-- **Tabela:** `frota` — uma única linha (id=1), coluna `dados` JSONB com toda a frota
+- **Tabela:** `frota` — uma única linha (id=1), coluna `dados` JSONB com toda a frota e coluna `versao` (sobe a cada gravação)
+- **Gravação:** SOMENTE pela função `frota_aplicar_ops(p_ops, p_cliente)` — recebe só os campos alterados. O `UPDATE` direto na tabela está **revogado** para o app (ver `sql/01_sincronizacao_segura.sql`)
+- **Histórico:** `frota_historico` (cada campo alterado: quando, valor anterior, valor novo, navegador) e `frota_snapshots` (fotografia completa a cada 3 h de uso, 30 dias). Consultas prontas no fim do arquivo SQL
 - **Real-time:** ativado via `ALTER PUBLICATION supabase_realtime ADD TABLE frota`
 - **RLS:** habilitado com políticas abertas (controle de acesso feito via PIN no app)
 
@@ -157,10 +166,15 @@ fleet = {
 - CSS `pointer-events: none` **não** é suficiente (só bloqueia mouse)
 - Botão "Importar" e ações destrutivas só aparecem em modo edição
 
-### Dados compartilhados (Supabase real-time)
-- Toda alteração é salva no Supabase após debounce de 400ms
-- Subscription via `postgres_changes` sincroniza entre os 6 usuários em tempo real
-- `ultimaSalvaRef` evita echo loop: snapshot é gravado **antes** do `await salvarFrota()` para que o evento real-time chegue já com o ref preenchido
+### Dados compartilhados — sincronização segura (nov/2026)
+- **NUNCA gravar a frota inteira.** Era isso que fazia o TSN "voltar sozinho": a aba de um gerente com dados antigos regravava tudo por cima do lançamento de outro.
+- Toda mutação passa por `setFleet` do `FleetContext`, que chama `motor.mutar()` (`src/lib/motorSync.js`).
+- O motor guarda a **base** (versão do servidor) e a **tela**. 400 ms após editar, envia só a diferença (`calcularOps`) para `frota_aplicar_ops`.
+- Linhas de tabela (itens com `id`) são endereçadas pelo id (`{ id: "..." }` no caminho), não pela posição.
+- Evento do tempo real → edições locais pendentes são reaplicadas por cima; nada recebido é regravado.
+- Versões antigas/repetidas são ignoradas. Recarga do servidor: ao reconectar, ao voltar para a aba, ao focar a janela, ao voltar a internet e quando a conferência de 20 s detecta versão perdida.
+- Falha de gravação: aviso vermelho no rodapé + toast, reenvio automático. Fechar a aba com pendências pede confirmação.
+- **Se mudar `aplicarOps` (sync.js), mude igual a função SQL** — e rode os dois testes em `scripts/`.
 
 ### Notificações TSN
 - Aparece quando TSN foi preenchido há mais de 24 horas **úteis** (seg–sex)

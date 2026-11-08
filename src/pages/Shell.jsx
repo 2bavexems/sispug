@@ -13,7 +13,7 @@ import { GerenteTasa } from "./GerenteTasa";
 import { PainelAeronave } from "./PainelAeronave";
 
 export function Shell() {
-  const { fleet, salvoEm, modoEdicao, desbloquear, bloquear, exportar, importar, addAeronave, removeAeronave } = useFleet();
+  const { fleet, salvoEm, statusGravacao, conectado, modoEdicao, desbloquear, bloquear, exportar, importar, addAeronave, removeAeronave } = useFleet();
   const [visao, setVisao] = useState("comando");
   const fileRef = useRef(null);
 
@@ -148,7 +148,14 @@ export function Shell() {
 
       <footer className="rodape">
         <div className="rodape-esq">
-          {salvoEm && <span>💾 Dados salvos neste navegador às {salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span>}
+          {statusGravacao === "erro" ? (
+            <span className="sync-erro">⚠️ Falha ao salvar — tentando novamente. Não feche a página.</span>
+          ) : statusGravacao === "salvando" ? (
+            <span>⏳ Salvando…</span>
+          ) : salvoEm ? (
+            <span>💾 Salvo na nuvem às {salvoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
+          ) : null}
+          {!conectado && <span className="sync-alerta"> • 🔴 Tempo real desconectado — conferindo o servidor a cada 20 s</span>}
         </div>
         <div className="rodape-dir">Dados compartilhados • Supabase • v3.0</div>
       </footer>

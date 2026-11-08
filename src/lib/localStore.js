@@ -23,31 +23,10 @@ export const FROTA_VAZIA = {
   },
 };
 
-/**
- * Indica se a frota tem algum conteúdo real (aeronaves ou itens cadastrados).
- * Usado como trava de segurança: nunca gravamos/aceitamos uma frota "vazia"
- * por cima de uma que tem dados — foi exatamente esse tipo de sobrescrita que
- * apagou o planejamento. Um objeto vazio só é legítimo num projeto recém-criado.
- */
-export function frotaTemConteudo(frota) {
-  if (!frota || typeof frota !== "object") return false;
-  const aeronaves = Object.keys(frota.aeronaves || {}).length;
-  const ordem = (frota.ordem || []).length;
-  const planj = Object.values(frota.planejamento || {}).some(
-    (p) => (p?.manutencoes || []).length > 0
-  );
-  const tasa = frota.tasa || {};
-  const tasaItens =
-    (tasa.missoes || []).length +
-    (tasa.material || []).length +
-    (tasa.pessoal?.especialistas || []).length +
-    (tasa.pessoal?.auxiliares || []).length +
-    (tasa.pessoal?.motoristas || []).length;
-  return aeronaves > 0 || ordem > 0 || planj || tasaItens > 0;
-}
+export { frotaTemConteudo } from "./conteudo.js";
 
 /**
- * Carrega a frota do Supabase.
+ * Carrega a frota do Supabase. Devolve { dados, versao }.
  * IMPORTANTE: se a leitura FALHAR (rede, permissão, etc.), lançamos o erro em
  * vez de devolver uma frota vazia. Assim o app sabe que NÃO carregou de verdade
  * e mantém as gravações bloqueadas — evitando salvar "vazio" por cima da nuvem.
@@ -55,47 +34,49 @@ export function frotaTemConteudo(frota) {
 export async function carregarFrota() {
   const { data, error } = await supabase
     .from("frota")
-    .select("dados")
+    .select("dados, versao")
     .eq("id", 1)
     .single();
   if (error) throw error;
-  return data?.dados ?? structuredClone(FROTA_VAZIA);
+  return {
+    dados: data?.dados ?? structuredClone(FROTA_VAZIA),
+    versao: Number(data?.versao ?? 0),
+  };
+}
+
+/** Lê só o número da versão atual (consulta leve, usada para conferência). */
+export async function lerVersao() {
+  const { data, error } = await supabase.from("frota").select("versao").eq("id", 1).single();
+  if (error) throw error;
+  return Number(data?.versao ?? 0);
 }
 
 /**
- * Salva a frota inteira no Supabase (sobrescreve a versão anterior).
- * Trava de segurança: recusa gravar uma frota vazia/sem conteúdo, que só
- * poderia vir de um bug ou de uma carga que falhou — nunca de uso normal.
+ * Envia as operações (só os campos alterados) para o servidor, que as aplica
+ * de forma atômica. Devolve a nova versão. LANÇA ERRO se a gravação falhar —
+ * quem chama decide tentar de novo e avisa o usuário (nada de "salvo" falso).
  */
-export async function salvarFrota(frota) {
-  if (!frotaTemConteudo(frota)) {
-    console.warn("[SisPug] Gravação bloqueada: frota vazia/sem conteúdo. Nada foi sobrescrito.");
-    return;
-  }
-  try {
-    await supabase
-      .from("frota")
-      .update({ dados: frota, atualizado_em: new Date().toISOString() })
-      .eq("id", 1);
-  } catch (e) {
-    console.error("[SisPug] Erro ao salvar:", e);
-  }
+export async function enviarOps(ops, cliente) {
+  const { data, error } = await supabase.rpc("frota_aplicar_ops", { p_ops: ops, p_cliente: cliente });
+  if (error) throw error;
+  return Number(data);
 }
 
 /**
  * Assina atualizações em tempo real da tabela frota.
- * Chama callback(novaFrota) sempre que outro usuário salvar uma alteração.
- * Retorna o canal — use supabase.removeChannel(canal) para cancelar.
+ * callback({ dados, versao }) a cada gravação (de qualquer usuário, inclusive a nossa).
+ * aoMudarStatus(status) informa o estado da conexão ("SUBSCRIBED", "CLOSED",
+ * "CHANNEL_ERROR", "TIMED_OUT").
  */
-export function subscribeToFrota(callback) {
+export function subscribeToFrota(callback, aoMudarStatus) {
   return supabase
     .channel("frota-realtime")
     .on(
       "postgres_changes",
       { event: "UPDATE", schema: "public", table: "frota", filter: "id=eq.1" },
-      (payload) => callback(payload.new.dados)
+      (payload) => callback({ dados: payload.new?.dados, versao: Number(payload.new?.versao ?? 0) })
     )
-    .subscribe();
+    .subscribe((status) => aoMudarStatus?.(status));
 }
 
 /** Compatibilidade — sempre disponível com Supabase. */

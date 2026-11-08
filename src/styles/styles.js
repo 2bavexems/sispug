@@ -879,4 +879,8 @@ select.plnj-input-select option{background:#12294c;color:var(--texto)}
 @media (max-width:640px){
   .tasa-pessoal-cols{grid-template-columns:1fr}
 }
+
+/* Status de sincronização no rodapé */
+.sync-erro { color: #ff6b6b; font-weight: 700; }
+.sync-alerta { color: #ffb347; font-weight: 600; }
 `;
