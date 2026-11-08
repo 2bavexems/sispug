@@ -176,6 +176,12 @@ fleet = {
 - Falha de gravação: aviso vermelho no rodapé + toast, reenvio automático. Fechar a aba com pendências pede confirmação.
 - **Se mudar `aplicarOps` (sync.js), mude igual a função SQL** — e rode os dois testes em `scripts/`.
 
+### Campo TSN (CampoTSN em PainelAeronave.jsx)
+- Valor fica só na tela enquanto digita; grava ao sair do campo/Enter, com timestamp (mesmo valor = "atualizado hoje").
+- TSN menor que o anterior ou apagado → Modal de confirmação; cancelar mantém o anterior.
+- TSN vazio nunca vira 0: `potencial()` devolve null e as telas mostram "sem TSN" (`tsnFaltando` em domain.js).
+- Resumos (Cmdo Btl / Cmt EMS) usam `limiteEfetivo` (com extensão; se vazio, sem extensão).
+
 ### Notificações TSN
 - Aparece quando TSN foi preenchido há mais de 24 horas **úteis** (seg–sex)
 - Campos vazios **não** disparam notificação

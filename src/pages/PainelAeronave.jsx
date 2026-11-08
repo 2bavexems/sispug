@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useFleet } from "../contexts/FleetContext";
 import {
   SITUACOES, MODELOS, APLICACOES,
-  fmtData, diasAte, potencial, nivel, tsnAtrasado, tsnCampoAtrasado, TSN_CAMPOS, deveConfirmarMnt,
+  fmtData, diasAte, potencial, nivel, tsnAtrasado, tsnCampoAtrasado, TSN_CAMPOS, deveConfirmarMnt, tsnFaltando,
 } from "../lib/domain";
 import { Campo } from "../components/Campo";
 import { Modal } from "../components/Modal";
@@ -71,9 +71,9 @@ export function PainelAeronave({ numeral, remover }) {
           <Campo rotulo="Modelo" vazio={estaVazio(anv.modelo)}><select {...campo("modelo")}>{MODELOS.map((m) => <option key={m}>{m}</option>)}</select></Campo>
           <Campo rotulo="Situação" vazio={estaVazio(anv.situacao)}><select className={corSituacao(anv.situacao)} {...campo("situacao")}>{SITUACOES.map((s) => <option key={s}>{s}</option>)}</select></Campo>
           <Campo rotulo="Local" vazio={estaVazio(anv.local)}><input {...campo("local")} /></Campo>
-          <Campo rotulo="TSN Célula (h)" vazio={estaVazio(anv.tsnCelula)} atrasado={tsnCampoAtrasado(anv, "tsnCelula")}><input type="number" step="0.1" className="mono" {...campo("tsnCelula")} /></Campo>
-          <Campo rotulo="TSN GTM I (h)" vazio={estaVazio(anv.tsnGtm1)} atrasado={tsnCampoAtrasado(anv, "tsnGtm1")}><input type="number" step="0.1" className="mono" {...campo("tsnGtm1")} /></Campo>
-          <Campo rotulo="TSN GTM II (h)" vazio={estaVazio(anv.tsnGtm2)} atrasado={tsnCampoAtrasado(anv, "tsnGtm2")}><input type="number" step="0.1" className="mono" {...campo("tsnGtm2")} /></Campo>
+          <CampoTSN anv={anv} numeral={numeral} campo="tsnCelula" rotulo="TSN Célula (h)" />
+          <CampoTSN anv={anv} numeral={numeral} campo="tsnGtm1" rotulo="TSN GTM I (h)" />
+          <CampoTSN anv={anv} numeral={numeral} campo="tsnGtm2" rotulo="TSN GTM II (h)" />
           <Campo rotulo="Pousos" vazio={!isPanteraK2 && estaVazio(anv.pousos)}>{isPanteraK2 ? (
             <input type="text" className="mono" value="não é o caso" disabled />
           ) : (
@@ -203,6 +203,7 @@ function TabelaManutencao({ titulo, secao, numeral, comAplicacao }) {
               const unidLabel = r.tipo === "Horária" ? "h" : r.tipo === "Pousos" ? "pousos" : "dias";
               const pS = potencial(r, r.limiteSem, anv, secao);
               const pC = potencial(r, r.limiteCom, anv, secao);
+              const semTsn = tsnFaltando(anv, secao, r);
               // Função local para checar vazio
               const estaVazio = (valor) => !valor && valor !== 0;
               return (
@@ -224,10 +225,14 @@ function TabelaManutencao({ titulo, secao, numeral, comAplicacao }) {
                     ? <input type="number" step="1" className="cel mono" disabled={estaTravado(r.id)} value={r.limiteCom} onChange={(e) => setRow(r.id, { limiteCom: e.target.value })} placeholder="pousos" />
                     : <input type="date" className="cel mono" disabled={estaTravado(r.id)} value={r.limiteCom} onChange={(e) => setRow(r.id, { limiteCom: e.target.value })} />}</span></td>
                   <td className="centro" title={r.tipo === "Calendárica" ? `Vence em ${fmtData(r.limiteSem)}` : r.tipo === "Pousos" ? "Limite − Pousos da aeronave" : "Limite − TSN aplicável"}>
-                    <span className={"chip " + nivel(pS, u, tipoNivel)}>{pS === null ? "—" : pS < 0 ? "VENCIDO" : `${pS} ${unidLabel}`}</span>
+                    {semTsn && !estaVazio(r.limiteSem)
+                      ? <span className="chip critico" title="Preencha o TSN da aeronave para calcular">sem TSN</span>
+                      : <span className={"chip " + nivel(pS, u, tipoNivel)}>{pS === null ? "—" : pS < 0 ? "VENCIDO" : `${pS} ${unidLabel}`}</span>}
                   </td>
                   <td className="centro" title={r.tipo === "Calendárica" ? `Vence em ${fmtData(r.limiteCom)}` : r.tipo === "Pousos" ? "Limite − Pousos da aeronave" : "Limite − TSN aplicável"}>
-                    <span className={"chip " + nivel(pC, u, tipoNivel)}>{pC === null ? "—" : pC < 0 ? "VENCIDO" : `${pC} ${unidLabel}`}</span>
+                    {semTsn && !estaVazio(r.limiteCom)
+                      ? <span className="chip critico" title="Preencha o TSN da aeronave para calcular">sem TSN</span>
+                      : <span className={"chip " + nivel(pC, u, tipoNivel)}>{pC === null ? "—" : pC < 0 ? "VENCIDO" : `${pC} ${unidLabel}`}</span>}
                   </td>
                   <td><span className={"cel-wrapper" + (secao === "recheques" && estaVazio(r.obs) ? " vazio" : "")}><input className="cel" disabled={estaTravado(r.id)} value={r.obs} onChange={(e) => setRow(r.id, { obs: e.target.value })} placeholder="—" /></span></td>
                   <td className="acoes-linha">
@@ -327,5 +332,70 @@ function TabelaAnotacoes({ numeral }) {
         onCancelar={() => setModalExcluir({ aberto: false, id: null })}
       />
     </section>
+  );
+}
+
+// ----------------------------------------------------------------------------
+// Campo de TSN com proteção contra regressão por erro de digitação.
+// Enquanto o gerente digita, o valor fica só na tela (não é gravado letra por
+// letra). Ao sair do campo (ou Enter):
+//   • se o TSN ficou MENOR que o anterior (ou foi apagado) → pede confirmação;
+//     "Cancelar" volta ao valor anterior, sem gravar nada;
+//   • se ficou igual ou maior → grava e registra a hora da atualização
+//     (digitar o mesmo valor também conta como "TSN atualizado hoje").
+// ----------------------------------------------------------------------------
+function CampoTSN({ anv, numeral, campo, rotulo }) {
+  const { updateAeronave } = useFleet();
+  const [edicao, setEdicao] = useState(null);       // { original, rascunho, mexeu }
+  const [confirmacao, setConfirmacao] = useState(null); // { original, novo }
+  const atual = anv[campo] ?? "";
+  const valorTela = edicao ? edicao.rascunho : atual;
+  const vazio = !valorTela && valorTela !== 0;
+
+  const gravar = (valor) =>
+    updateAeronave(numeral, { [campo]: valor, [TSN_CAMPOS[campo]]: new Date().toISOString() });
+
+  const aoFocar = () => setEdicao({ original: atual, rascunho: atual, mexeu: false });
+  const aoDigitar = (e) =>
+    setEdicao((ed) => ({ original: ed ? ed.original : atual, rascunho: e.target.value, mexeu: true }));
+  const aoSair = () => {
+    const ed = edicao;
+    setEdicao(null);
+    if (!ed || !ed.mexeu) return;
+    const novo = String(ed.rascunho ?? "").trim();
+    const nOrig = parseFloat(ed.original);
+    const nNovo = parseFloat(novo);
+    const diminuiu = !isNaN(nOrig) && (novo === "" || isNaN(nNovo) || nNovo < nOrig);
+    if (diminuiu) setConfirmacao({ original: String(ed.original), novo });
+    else gravar(novo);
+  };
+
+  return (
+    <>
+      <Campo rotulo={rotulo} vazio={vazio} atrasado={tsnCampoAtrasado(anv, campo)}>
+        <input
+          type="number" step="0.1" className="mono"
+          value={valorTela}
+          onFocus={aoFocar}
+          onChange={aoDigitar}
+          onBlur={aoSair}
+          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+        />
+      </Campo>
+      <Modal
+        aberto={!!confirmacao}
+        titulo="TSN menor que o anterior"
+        mensagem={confirmacao
+          ? (confirmacao.novo === ""
+            ? `O ${rotulo} da aeronave ${numeral} (${confirmacao.original} h) será APAGADO. Confirma?`
+            : `O ${rotulo} da aeronave ${numeral} vai DIMINUIR de ${confirmacao.original} h para ${confirmacao.novo} h. O TSN normalmente só aumenta — confira se não houve erro de digitação. Confirma a alteração?`)
+          : ""}
+        confirmLabel="Confirmar alteração"
+        cancelLabel="Cancelar (manter anterior)"
+        perigo
+        onConfirmar={() => { gravar(confirmacao.novo); setConfirmacao(null); }}
+        onCancelar={() => setConfirmacao(null)}
+      />
+    </>
   );
 }

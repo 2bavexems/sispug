@@ -145,6 +145,25 @@ export function diasAte(iso) {
   return Math.round((new Date(iso + "T00:00:00") - hoje()) / 86400000);
 }
 
+// TSN vazio/inválido NÃO pode virar zero: senão o potencial horário fica igual
+// ao limite inteiro e aparece "verde" sem que ninguém tenha informado o TSN.
+const tsnVazio = (v) => v === undefined || v === null || String(v).trim() === "" || isNaN(parseFloat(v));
+
+/** Item horário cujo TSN de referência (célula, GTM I/II) não foi informado. */
+export function tsnFaltando(anv, secao, row) {
+  if (row?.tipo !== "Horária") return false;
+  if (secao === "motores") {
+    if (row.aplicacao === "GTM I") return tsnVazio(anv.tsnGtm1);
+    if (row.aplicacao === "GTM II") return tsnVazio(anv.tsnGtm2);
+    return tsnVazio(anv.tsnGtm1) || tsnVazio(anv.tsnGtm2); // "Ambos" precisa dos dois
+  }
+  return tsnVazio(anv.tsnCelula);
+}
+
+/** Limite usado no resumo: com extensão; se vazio, o sem extensão. */
+export const limiteEfetivo = (r) =>
+  r.limiteCom !== undefined && r.limiteCom !== null && String(r.limiteCom).trim() !== "" ? r.limiteCom : r.limiteSem;
+
 export function tsnReferencia(anv, secao, row) {
   if (secao === "motores") {
     const t1 = parseFloat(anv.tsnGtm1) || 0;
@@ -161,6 +180,7 @@ export function potencial(row, limite, anv, secao) {
   if (row.tipo === "Horária") {
     const lim = parseFloat(limite);
     if (isNaN(lim)) return null;
+    if (tsnFaltando(anv, secao, row)) return null; // sem TSN não há potencial confiável
     return Math.round((lim - tsnReferencia(anv, secao, row)) * 10) / 10;
   }
   if (row.tipo === "Pousos") {
@@ -193,12 +213,19 @@ export function nivel(valor, unidade, tipo) {
 export function limitesOrdenados(anv) {
   const horas = [];
   const dias = [];
+  let semTsn = false;
   const varrer = (secao, rows) =>
-    rows.forEach((r) => {
+    (rows || []).forEach((r) => {
       // Recheques por Pousos (Anv Cougar) NÃO entram no ranking de Cmt Blt / Cmt EMS
       if (r.tipo === "Pousos") return;
-      // Sempre considera limiteCom (com extensão)
-      const p = potencial(r, r.limiteCom, anv, secao);
+      // Considera o limite COM extensão; se não preenchido, o SEM extensão
+      // (antes o item sumia do Cmdo Btl / Cmt EMS quando só havia limite s/ ext.).
+      const lim = limiteEfetivo(r);
+      if (r.tipo === "Horária" && lim !== "" && lim != null && tsnFaltando(anv, secao, r)) {
+        semTsn = true; // há item horário que não pode ser calculado
+        return;
+      }
+      const p = potencial(r, lim, anv, secao);
       if (p === null) return;
       const nome = r.descricao || r.os || "—";
       if (r.tipo === "Horária") horas.push({ valor: p, nome, tipo: "padrao" });
@@ -210,9 +237,9 @@ export function limitesOrdenados(anv) {
   varrer("recheques", anv.recheques);
   // Apenas A/T COM extensão entra no ranking (Cmdo Btl / Cmt EMS).
   // A A/T sem extensão existe só para controle no SisDeLu.
-  const dAT = diasAte(anv.inspecoes.atCom);
+  const dAT = diasAte(anv.inspecoes?.atCom);
   if (dAT !== null) dias.push({ valor: dAT, nome: "Insp A/T", tipo: "at" });
-  const dC = diasAte(anv.inspecoes.inspC);
+  const dC = diasAte(anv.inspecoes?.inspC);
   if (dC !== null) dias.push({ valor: dC, nome: "Inspeção C", tipo: "inspC" });
   // Potencial A/T (horas) não entra no ranking: o vencimento calendárico da A/T
   // sempre ocorre primeiro, então a contagem por horas não é utilizada.
@@ -241,6 +268,8 @@ export function limitesOrdenados(anv) {
   const diasAgrupadas = agruparInspeções(dias);
 
   horasAgrupadas.sort((a, b) => a.valor - b.valor);
+  // TSN não informado aparece em 1º lugar, como alerta, no lugar de um número falso.
+  if (semTsn) horasAgrupadas.unshift({ valor: null, nome: "TSN não informado", tipo: "padrao", semTsn: true });
   diasAgrupadas.sort((a, b) => a.valor - b.valor);
   return { horas: horasAgrupadas, dias: diasAgrupadas };
 }
@@ -287,6 +316,7 @@ export function pesquisaManutencoes(anv) {
       limiteCom: r.limiteCom,
       potSem,
       potCom,
+      semTsn: tsnFaltando(anv, secao, r) && !!(r.limiteSem || r.limiteCom),
       ordem,
     };
     if (r.tipo === "Horária") horarias.push(item);

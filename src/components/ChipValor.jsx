@@ -3,6 +3,7 @@ import { nivel } from "../lib/domain";
 
 export function ChipValor({ item, unidade }) {
   if (!item) return <span className="chip na">—</span>;
+  if (item.semTsn) return <span className="chip critico" title="Preencha o TSN da aeronave para calcular">sem TSN</span>;
   const { valor, tipo, nome } = item;
   // Guard: valor undefined/null/NaN (ex.: campo não preenchido)
   if (valor === null || valor === undefined || isNaN(valor)) {

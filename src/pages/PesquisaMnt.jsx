@@ -12,7 +12,8 @@ import { pesquisaManutencoes, fmtData, nivel } from "../lib/domain";
 import { SeloSituacao } from "../components/SeloSituacao";
 
 // Chip de potencial (horas/dias) com a mesma cor de criticidade do resto do app
-function ChipPot({ pot, unidade, tipoNivel }) {
+function ChipPot({ pot, unidade, tipoNivel, semTsn }) {
+  if (semTsn) return <span className="chip critico" title="Preencha o TSN da aeronave para calcular">sem TSN</span>;
   const u = unidade === "h" ? "h" : "d";
   const cls = nivel(pot, u, tipoNivel);
   const txt =
@@ -67,8 +68,8 @@ function ListaMnt({ titulo, itens, unidade, vazioMsg }) {
                     </div>
                   </td>
                   <td className="mono pmnt-lim divisor-dir">{limTxt}</td>
-                  <td className="centro"><ChipPot pot={it.potSem} unidade={unidade} tipoNivel={it.tipoNivel} /></td>
-                  <td className="centro divisor-dir"><ChipPot pot={it.potCom} unidade={unidade} tipoNivel={it.tipoNivel} /></td>
+                  <td className="centro"><ChipPot pot={it.potSem} unidade={unidade} tipoNivel={it.tipoNivel} semTsn={it.semTsn} /></td>
+                  <td className="centro divisor-dir"><ChipPot pot={it.potCom} unidade={unidade} tipoNivel={it.tipoNivel} semTsn={it.semTsn} /></td>
                   <td className="centro pmnt-cell-delta">
                     {it.delta === null || it.delta === undefined || isNaN(it.delta) ? (
                       <span className="pmnt-delta base">—</span>
