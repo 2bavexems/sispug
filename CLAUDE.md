@@ -73,7 +73,7 @@ sispug/
 - **URL:** `https://dqkyjcfxdvsfqtfnxbzl.supabase.co`
 - **Tabela:** `frota` — uma única linha (id=1), coluna `dados` JSONB com toda a frota e coluna `versao` (sobe a cada gravação)
 - **Gravação:** SOMENTE pela função `frota_aplicar_ops(p_ops, p_cliente)` — recebe só os campos alterados. O `UPDATE` direto na tabela está **revogado** para o app (ver `sql/01_sincronizacao_segura.sql`)
-- **Histórico:** `frota_historico` (cada campo alterado: quando, valor anterior, valor novo, navegador) e `frota_snapshots` (fotografia completa a cada 3 h de uso, 30 dias). Consultas prontas no fim do arquivo SQL
+- **Histórico:** `frota_alteracoes` (cada campo alterado: quando, valor anterior, valor novo, navegador) e `frota_historico` (backup antigo: cópia completa da frota a cada gravação, últimas 2000, via gatilho `trg_snapshot_frota`). Consultas prontas no fim do arquivo SQL
 - **Real-time:** ativado via `ALTER PUBLICATION supabase_realtime ADD TABLE frota`
 - **RLS:** habilitado com políticas abertas (controle de acesso feito via PIN no app)
 

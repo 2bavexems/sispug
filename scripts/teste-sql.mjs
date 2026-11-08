@@ -10,8 +10,19 @@ let falhas = 0; const ok = (c, m) => { if (!c) { falhas++; console.log("  ✗ " 
 await db.exec(`create role anon; create role authenticated;
   create table public.frota (id int primary key, dados jsonb, atualizado_em timestamptz);
   alter table public.frota enable row level security;
-  create policy abre on public.frota for all using (true) with check (true);
-  grant all on public.frota to anon, authenticated;`);
+  create policy leitura_livre on public.frota for select using (true);
+  create policy escrita_livre on public.frota for update using (true) with check (true);
+  grant all on public.frota to anon, authenticated;
+  -- backup antigo existente em produção (cópia completa a cada gravação)
+  create table public.frota_historico (id bigserial primary key, frota_id int, dados jsonb, criado_em timestamptz default now());
+  grant all on public.frota_historico to anon, authenticated;
+  create or replace function public.snapshot_frota() returns trigger language plpgsql security definer set search_path to 'public' as $f$
+  begin if OLD.dados is distinct from NEW.dados then
+    insert into public.frota_historico(frota_id, dados, criado_em) values (OLD.id, OLD.dados, now());
+    delete from public.frota_historico where id < (select max(id) - 2000 from public.frota_historico);
+  end if; return NEW; end; $f$;
+  create trigger trg_snapshot_frota after update on public.frota for each row execute function public.snapshot_frota();
+  insert into public.frota_historico(frota_id, dados) values (1, '{"antigo": true}');`);
 let semente = 7; const rnd = () => ((semente = (semente * 1103515245 + 12345) % 2147483648) / 2147483648);
 const int = (n) => Math.floor(rnd() * n); const pick = (a) => a[int(a.length)];
 let c = 0; const id = () => "r" + (++c);
@@ -59,11 +70,13 @@ for (let i = 0; i < 1500; i++) {
 }
 console.log(`  ✓ ${iguaisCont} rodadas: servidor (SQL) e app chegaram exatamente ao mesmo resultado`);
 
-const hist = (await db.query("select count(*)::int n from frota_historico")).rows[0].n;
-const snap = (await db.query("select count(*)::int n from frota_snapshots")).rows[0].n;
-ok(hist > 0, "histórico vazio"); ok(snap === 1, "deveria haver 1 fotografia (3h) e há " + snap);
-console.log(`  ✓ histórico com ${hist} registros; ${snap} fotografia da frota`);
-const ex = (await db.query("select tipo, caminho, valor_anterior, valor_novo from frota_historico where caminho->>2='tsnCelula' order by id desc limit 1")).rows[0];
+const hist = (await db.query("select count(*)::int n from frota_alteracoes")).rows[0].n;
+const snap = (await db.query("select count(*)::int n from frota_historico")).rows[0].n;
+const antigo = (await db.query("select count(*)::int n from frota_historico where dados->>'antigo' = 'true'")).rows[0].n;
+ok(hist > 0, "histórico campo a campo vazio"); ok(snap > 1000, "backup antigo deveria continuar gravando (há " + snap + ")");
+ok(antigo === 1, "registro antigo do backup foi perdido");
+console.log(`  ✓ histórico campo a campo: ${hist} registros; backup antigo continua funcionando (${snap} cópias, registro pré-existente preservado)`);
+const ex = (await db.query("select tipo, caminho, valor_anterior, valor_novo from frota_alteracoes where caminho->>2='tsnCelula' order by id desc limit 1")).rows[0];
 console.log("  exemplo de histórico:", JSON.stringify(ex));
 
 // Trava: apagar todas as aeronaves
@@ -87,7 +100,7 @@ let bloqueadoAntigo = false;
 try { await db.query("update frota set dados = '{}'::jsonb where id = 1"); } catch (e) { bloqueadoAntigo = /permission denied/.test(e.message); }
 let leitura = false; try { await db.query("select versao from frota"); leitura = true; } catch {}
 let rpc = false; try { await aplicarSQL([{ tipo: "set", path: ["aeronaves", Object.keys(d.aeronaves)[0], "local"], valor: "Hangar" }]); rpc = true; } catch (e) { console.log(e.message); }
-let histPriv = false; try { await db.query("select * from frota_historico"); } catch { histPriv = true; }
+let histPriv = false; try { await db.query("select * from frota_alteracoes"); } catch { histPriv = true; }
 await db.exec("reset role");
 ok(bloqueadoAntigo, "update direto deveria ser negado"); ok(leitura, "leitura deveria funcionar"); ok(rpc, "função deveria funcionar como anon"); ok(histPriv, "histórico não deveria ser acessível pelo app");
 console.log(`  ${bloqueadoAntigo && leitura && rpc && histPriv ? "✓" : "✗"} app antigo bloqueado; leitura e nova gravação liberadas; histórico protegido`);

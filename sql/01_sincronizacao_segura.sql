@@ -6,11 +6,11 @@
 --  2. Função frota_aplicar_ops: o app passa a gravar SÓ os campos alterados,
 --     de forma atômica no servidor. Um gerente nunca mais sobrescreve o
 --     lançamento de outro (fim do "TSN que volta sozinho").
---  3. Histórico campo a campo (frota_historico): cada alteração fica registrada
+--  3. Histórico campo a campo (frota_alteracoes): cada alteração fica registrada
 --     com data/hora, valor anterior e valor novo — permite auditar e desfazer.
---  4. Fotografias completas da frota (frota_snapshots) a cada 3 h de uso,
---     guardadas por 30 dias.
---  5. Bloqueia a gravação "frota inteira" usada pela versão antiga do app:
+--     (O backup antigo "frota_historico" — cópia completa da frota a cada
+--     gravação, últimas 2000, via gatilho trg_snapshot_frota — continua igual.)
+--  4. Bloqueia a gravação "frota inteira" usada pela versão antiga do app:
 --     abas antigas abertas não conseguem mais sobrescrever os dados.
 -- O script pode ser executado mais de uma vez sem causar problema.
 -- ============================================================================
@@ -18,8 +18,8 @@
 -- 1) Versão ------------------------------------------------------------------
 alter table public.frota add column if not exists versao bigint not null default 0;
 
--- 2) Histórico e fotografias -------------------------------------------------
-create table if not exists public.frota_historico (
+-- 2) Histórico campo a campo ---------------------------------------------------
+create table if not exists public.frota_alteracoes (
   id             bigserial primary key,
   versao         bigint      not null,
   alterado_em    timestamptz not null default now(),
@@ -29,21 +29,11 @@ create table if not exists public.frota_historico (
   valor_anterior jsonb,
   valor_novo     jsonb
 );
-create index if not exists idx_frota_hist_data on public.frota_historico (alterado_em desc);
+create index if not exists idx_frota_alt_data on public.frota_alteracoes (alterado_em desc);
 
-create table if not exists public.frota_snapshots (
-  id        bigserial primary key,
-  versao    bigint      not null,
-  criado_em timestamptz not null default now(),
-  dados     jsonb       not null
-);
-create index if not exists idx_frota_snap_data on public.frota_snapshots (criado_em desc);
-
-alter table public.frota_historico enable row level security;
-alter table public.frota_snapshots enable row level security;
+alter table public.frota_alteracoes enable row level security;
 -- Sem políticas = ninguém acessa pelo app; só o painel do Supabase e a função abaixo.
-revoke all on public.frota_historico from anon, authenticated;
-revoke all on public.frota_snapshots from anon, authenticated;
+revoke all on public.frota_alteracoes from anon, authenticated;
 
 -- 3) Função de gravação por campo --------------------------------------------
 -- p_ops: lista de operações [{ "tipo": "set"|"del", "path": [...], "valor": ... }]
@@ -115,7 +105,7 @@ begin
           -- linha não existe: se for uma gravação da linha inteira, acrescenta;
           -- caso contrário (linha apagada por outra pessoa) ignora a operação.
           if i = v_n - 1 and v_tipo = 'set' then
-            insert into frota_historico (versao, cliente, tipo, caminho, valor_anterior, valor_novo)
+            insert into frota_alteracoes (versao, cliente, tipo, caminho, valor_anterior, valor_novo)
             values (v_nova, p_cliente, 'set', v_op->'path', null, v_valor);
             v_dados := jsonb_set(v_dados, v_path, v_cur || jsonb_build_array(v_valor), false);
           end if;
@@ -133,12 +123,12 @@ begin
 
     if v_tipo = 'del' then
       if v_cur is null then continue ops; end if;   -- já não existe
-      insert into frota_historico (versao, cliente, tipo, caminho, valor_anterior, valor_novo)
+      insert into frota_alteracoes (versao, cliente, tipo, caminho, valor_anterior, valor_novo)
       values (v_nova, p_cliente, 'del', v_op->'path', v_cur, null);
       v_dados := v_dados #- v_path;
     else
       if v_cur is not distinct from v_valor then continue ops; end if;  -- nada mudou
-      insert into frota_historico (versao, cliente, tipo, caminho, valor_anterior, valor_novo)
+      insert into frota_alteracoes (versao, cliente, tipo, caminho, valor_anterior, valor_novo)
       values (v_nova, p_cliente, 'set', v_op->'path', v_cur, v_valor);
       v_dados := jsonb_set(v_dados, v_path, v_valor, true);
     end if;
@@ -159,12 +149,6 @@ begin
   if v_dados = v_antes then
     -- nada mudou de fato: não gera versão nova (descarta histórico vazio)
     return v_versao;
-  end if;
-
-  -- Fotografia completa (estado ANTERIOR) a cada 3 horas de uso; guarda 30 dias.
-  if not exists (select 1 from frota_snapshots where criado_em > now() - interval '3 hours') then
-    insert into frota_snapshots (versao, dados) values (v_versao, v_antes);
-    delete from frota_snapshots where criado_em < now() - interval '30 days';
   end if;
 
   update frota
@@ -188,9 +172,9 @@ grant select on public.frota to anon, authenticated;
 -- ----------------------------------------------------------------------------
 -- Últimas alterações de TSN:
 --   select alterado_em at time zone 'America/Sao_Paulo' as quando, caminho, valor_anterior, valor_novo, cliente
---     from frota_historico where caminho->>2 like 'tsn%' order by id desc limit 50;
+--     from frota_alteracoes where caminho->>2 like 'tsn%' order by id desc limit 50;
 -- Tudo o que mudou numa aeronave hoje:
---   select * from frota_historico where caminho->>1 = '2001' and alterado_em > current_date order by id desc;
--- Fotografias disponíveis para recuperação:
---   select id, versao, criado_em from frota_snapshots order by id desc;
+--   select * from frota_alteracoes where caminho->>1 = '2001' and alterado_em > current_date order by id desc;
+-- Cópias completas da frota (backup antigo, uma por gravação) para recuperação:
+--   select id, criado_em from frota_historico order by id desc limit 50;
 -- ============================================================================
